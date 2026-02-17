@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../config/app_theme.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
-import '../../services/storage_service.dart';
+import '../../services/profile_photo_service.dart';
 import '../login_screen.dart';
+import '../edit_profile_screen.dart';
 
 /// Tab de perfil de usuario
 class ProfileTab extends StatefulWidget {
@@ -16,6 +18,8 @@ class ProfileTab extends StatefulWidget {
 class _ProfileTabState extends State<ProfileTab> {
   UserModel? _user;
   bool _isLoading = true;
+  File? _profilePhoto;
+  int _photoTimestamp = DateTime.now().millisecondsSinceEpoch;
 
   @override
   void initState() {
@@ -28,21 +32,35 @@ class _ProfileTabState extends State<ProfileTab> {
       _isLoading = true;
     });
 
-    final userId = await StorageService.getUserId();
+    // Usa getCurrentUser() que obtiene datos del usuario actual via /users/me
+    final result = await ApiService.getCurrentUser();
 
-    if (userId != null) {
-      final result = await ApiService.getUser(userId);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        if (result.success) {
+          _user = result.data;
+          // Carga la foto de perfil
+          _loadProfilePhoto();
+        }
+      });
+    }
+  }
 
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          if (result.success) {
-            _user = result.data;
-          }
-        });
-      }
-    } else {
-      setState(() => _isLoading = false);
+  Future<void> _loadProfilePhoto() async {
+    if (_user == null) return;
+    // Limpiar caché de imagen anterior
+    if (_profilePhoto != null) {
+      FileImage(_profilePhoto!).evict();
+    }
+    imageCache.clear();
+    imageCache.clearLiveImages();
+    final photo = await ProfilePhotoService.getProfilePhoto(_user!.usuarioId);
+    if (mounted) {
+      setState(() {
+        _profilePhoto = photo;
+        _photoTimestamp = DateTime.now().millisecondsSinceEpoch;
+      });
     }
   }
 
@@ -122,8 +140,9 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildHeader() {
     return Column(
       children: [
-        // Avatar
+        // Avatar con foto de perfil
         Container(
+          key: ValueKey('profile_avatar_$_photoTimestamp'),
           width: 100,
           height: 100,
           decoration: BoxDecoration(
@@ -133,19 +152,27 @@ class _ProfileTabState extends State<ProfileTab> {
               color: AppColors.primary,
               width: 3,
             ),
+            image: _profilePhoto != null
+                ? DecorationImage(
+                    image: FileImage(File(_profilePhoto!.path)),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: Center(
-            child: Text(
-              _user != null
-                  ? '${_user!.nombre[0]}${_user!.apellido[0]}'.toUpperCase()
-                  : '?',
-              style: const TextStyle(
-                color: AppColors.primary,
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+          child: _profilePhoto == null
+              ? Center(
+                  child: Text(
+                    _user != null
+                        ? '${_user!.nombre[0]}${_user!.apellido[0]}'.toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                )
+              : null,
         ),
         const SizedBox(height: 16),
 
@@ -224,8 +251,20 @@ class _ProfileTabState extends State<ProfileTab> {
         _OptionTile(
           icon: Icons.edit_outlined,
           title: 'Editar perfil',
-          onTap: () {
-            // Navegar a editar perfil
+          onTap: () async {
+            if (_user == null) return;
+            
+            // Navega a editar perfil y espera resultado
+            final result = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) => EditProfileScreen(user: _user!),
+              ),
+            );
+            
+            // Si hubo cambios (result == true), recarga los datos
+            if (result == true) {
+              _loadUserData();
+            }
           },
         ),
         const SizedBox(height: 12),

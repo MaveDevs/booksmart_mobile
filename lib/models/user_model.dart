@@ -46,4 +46,9 @@ class UserModel {
 
   /// Nombre completo del usuario
   String get nombreCompleto => '$nombre $apellido';
+  String get iniciales {
+    final n = nombre.isNotEmpty ? nombre[0].toUpperCase() : '';
+    final a = apellido.isNotEmpty ? apellido[0].toUpperCase() : '';
+    return '$n$a';
+  }
 }

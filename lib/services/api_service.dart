@@ -166,6 +166,116 @@ class ApiService {
     }
   }
 
+  // obtiene la informacion del usuario actual
+
+  static Future<ApiResult<UserModel>> getCurrentUser() async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null){
+        return ApiResult.failure("No hay sesion activa");
+      }
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/users/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization' : 'Bearer $token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResult.success(UserModel.fromJson(data));
+      } else if (response.statusCode == 401) {
+        return ApiResult.failure('Sesion expirada');
+      }else {
+        return ApiResult.failure('Error al obtener usuario');
+      }
+    } on SocketException {
+      return ApiResult.failure("Sin Conexion a Internet");
+    } 
+    catch (e) {
+      return ApiResult.failure("Error inseperado: $e");
+    }
+  }
+
+
+  // Actualizar la informacion del usuario
+
+  static Future<ApiResult<UserModel>> updateUser({
+    required int userId,
+    String? nombre,
+    String? apellido,
+    String? correo,
+    String? contrasena,
+  }) async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        return ApiResult.failure('No hay sesion activa');
+      }
+
+      // Contruye el body solo con campos no nulos
+      final Map<String, dynamic> body = {};
+      if (nombre != null) body ['nombre'] = nombre;
+      if (apellido != null) body ['apellido'] = apellido;
+      if (correo != null) body ['correo'] = correo;
+      if (contrasena != null) body ['contrasena'] = contrasena;
+
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return ApiResult.success(UserModel.fromJson(data));
+      } else if (response.statusCode == 401) {
+        return ApiResult.failure('Sesion expirada');
+      } else if (response.statusCode == 422) {
+        return ApiResult.failure('Datos Invalidos');
+      } else {
+        return ApiResult.failure('Error al actualizar');
+      }
+    } on SocketException {
+      return ApiResult.failure('Sin conexion a internet');
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+    }
+  }
+
+  // Desactiva la cuenta del usuario (soft delete)
+  static Future<ApiResult<bool>> deactivateAccount(int userId) async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        return ApiResult.failure('No hay sesion activa');
+      }
+
+      final response = await http.patch(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/users/$userId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'activo': false}),
+      );
+
+      if (response.statusCode == 200) {
+        await StorageService.clearAll();
+        return ApiResult.success(true);
+      } else {
+        return ApiResult.failure('Error al desactivar cuenta');
+      }
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+      
+    }
+  }
+
   /// Cierra la sesion del usuario
   static Future<void> logout() async {
     await StorageService.clearAll();

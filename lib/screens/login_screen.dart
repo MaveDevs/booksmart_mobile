@@ -97,7 +97,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(24),
                         child: Image.asset(
-                          'assets/icono.png',
+                          'assets/BS-icono-transparente.png',
                           fit: BoxFit.cover,
                         ),
                       ),

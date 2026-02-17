@@ -6,7 +6,7 @@
 /// 
 class ApiConfig {
   // Cambia esta IP por la de tu computadora en tu red local
-  static const String baseUrl = 'http://192.168.100.14:8000';
+  static const String baseUrl = 'https://booksmartutt.duckdns.org';
   
   // Endpoints de autenticacion
   static const String loginEndpoint = '/api/v1/auth/login/access-token';
