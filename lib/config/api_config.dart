@@ -12,6 +12,7 @@ class ApiConfig {
   static const String loginEndpoint = '/api/v1/auth/login/access-token';
   static const String registerEndpoint = '/api/v1/users/';
   static const String userEndpoint = '/api/v1/users';
+  static const String establishmentsEndpoint = '/api/v1/establishments/';
   
   // Timeout para las peticiones (en segundos)
   static const int timeout = 30;

@@ -46,6 +46,13 @@ dependencies:
   
   # Path provider for local storage
   path_provider: ^2.1.2
+  
+  # Mapa OpenStreetMap
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  
+  # Ubicación del dispositivo
+  geolocator: ^13.0.2
 
 dev_dependencies:
   # App icon configuration

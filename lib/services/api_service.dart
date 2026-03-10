@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/auth_response.dart';
 import '../models/user_model.dart';
+import '../models/establishment_model.dart';
 import 'storage_service.dart';
 
 /// Resultado de una operacion de API
@@ -279,5 +280,40 @@ class ApiService {
   /// Cierra la sesion del usuario
   static Future<void> logout() async {
     await StorageService.clearAll();
+  }
+
+  /// Obtiene todos los establecimientos activos
+  static Future<ApiResult<List<EstablishmentModel>>> getEstablishments() async {
+    try {
+      final token = await StorageService.getToken();
+      if (token == null) {
+        return ApiResult.failure('No hay sesion activa');
+      }
+
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}${ApiConfig.establishmentsEndpoint}'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ).timeout(Duration(seconds: ApiConfig.timeout));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final establishments = data
+            .map((json) => EstablishmentModel.fromJson(json))
+            .where((e) => e.activo)
+            .toList();
+        return ApiResult.success(establishments);
+      } else if (response.statusCode == 401) {
+        return ApiResult.failure('Sesion expirada');
+      } else {
+        return ApiResult.failure('Error al obtener establecimientos');
+      }
+    } on SocketException {
+      return ApiResult.failure('Sin conexion a internet');
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+    }
   }
 }
