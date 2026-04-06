@@ -15,11 +15,16 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeService.init();
   await LocalNotificationService.init();
-  runApp(const MyApp());
+
+  // Verificar token ANTES de runApp para evitar pantalla de carga intermedia
+  final hasToken = await StorageService.hasToken();
+
+  runApp(MyApp(isLoggedIn: hasToken));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool isLoggedIn;
+  const MyApp({super.key, required this.isLoggedIn});
 
   @override
   Widget build(BuildContext context) {
@@ -38,64 +43,42 @@ class MyApp extends StatelessWidget {
                 Theme.of(context).brightness == Brightness.dark);
             return child!;
           },
-          home: const AuthChecker(),
+          home: isLoggedIn ? const _PostLoginInit() : const LoginScreen(),
         );
       },
     );
   }
 }
 
-/// Widget que verifica si hay una sesion activa
-class AuthChecker extends StatefulWidget {
-  const AuthChecker({super.key});
+/// Inicia servicios en background y muestra MainScreen directamente
+class _PostLoginInit extends StatefulWidget {
+  const _PostLoginInit();
 
   @override
-  State<AuthChecker> createState() => _AuthCheckerState();
+  State<_PostLoginInit> createState() => _PostLoginInitState();
 }
 
-class _AuthCheckerState extends State<AuthChecker> {
-  bool _isChecking = true;
-  bool _isLoggedIn = false;
-
+class _PostLoginInitState extends State<_PostLoginInit> {
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    _initServices();
   }
 
-  Future<void> _checkAuth() async {
-    final hasToken = await StorageService.hasToken();
-    if (hasToken) {
-      // Si hay token pero no hay userId guardado, obtenerlo
-      final userId = await StorageService.getUserId();
-      if (userId == null) {
-        final userResult = await ApiService.getCurrentUser();
-        if (userResult.success && userResult.data != null) {
-          await StorageService.saveUserId(userResult.data!.usuarioId);
-        }
+  Future<void> _initServices() async {
+    // Obtener userId si falta
+    final userId = await StorageService.getUserId();
+    if (userId == null) {
+      final userResult = await ApiService.getCurrentUser();
+      if (userResult.success && userResult.data != null) {
+        await StorageService.saveUserId(userResult.data!.usuarioId);
       }
-      // Conectar WebSocket y escuchar notificaciones
-      await WebSocketService.instance.connect();
-      LocalNotificationService.startListening();
     }
-    setState(() {
-      _isLoggedIn = hasToken;
-      _isChecking = false;
-    });
+    // Conectar WebSocket y notificaciones en background
+    await WebSocketService.instance.connect();
+    LocalNotificationService.startListening();
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (_isChecking) {
-      return Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.primary,
-          ),
-        ),
-      );
-    }
-
-    return _isLoggedIn ? const MainScreen() : const LoginScreen();
-  }
+  Widget build(BuildContext context) => const MainScreen();
 }

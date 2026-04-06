@@ -34,8 +34,13 @@ class StorageService {
   }
 
   /// Elimina todos los datos almacenados (para logout)
+  /// Preserva la preferencia de tema del usuario
   static Future<void> clearAll() async {
+    final theme = await _storage.read(key: 'app_theme_mode');
     await _storage.deleteAll();
+    if (theme != null) {
+      await _storage.write(key: 'app_theme_mode', value: theme);
+    }
   }
 
   /// Verifica si hay un token guardado

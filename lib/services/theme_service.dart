@@ -5,23 +5,30 @@ import 'storage_service.dart';
 class ThemeService {
   static const String _themeKey = 'app_theme_mode';
   static final ValueNotifier<ThemeMode> themeNotifier =
-      ValueNotifier(ThemeMode.light);
+      ValueNotifier(ThemeMode.system);
 
   /// Inicializa leyendo la preferencia guardada
   static Future<void> init() async {
     final saved = await StorageService.read(_themeKey);
-    if (saved == 'dark') {
-      themeNotifier.value = ThemeMode.dark;
-    } else {
-      themeNotifier.value = ThemeMode.light;
+    switch (saved) {
+      case 'dark':
+        themeNotifier.value = ThemeMode.dark;
+      case 'light':
+        themeNotifier.value = ThemeMode.light;
+      default:
+        themeNotifier.value = ThemeMode.system;
     }
   }
 
   /// Cambia y persiste el tema
   static Future<void> setThemeMode(ThemeMode mode) async {
     themeNotifier.value = mode;
-    await StorageService.write(
-        _themeKey, mode == ThemeMode.light ? 'light' : 'dark');
+    final value = switch (mode) {
+      ThemeMode.dark => 'dark',
+      ThemeMode.light => 'light',
+      ThemeMode.system => 'system',
+    };
+    await StorageService.write(_themeKey, value);
   }
 
   static bool get isDark => themeNotifier.value == ThemeMode.dark;
