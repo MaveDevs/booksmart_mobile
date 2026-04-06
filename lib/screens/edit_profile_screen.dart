@@ -83,7 +83,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              const Text(
+              Text(
                 'Cambiar foto de perfil',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -99,10 +99,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
+                  child: Icon(Icons.photo_library_outlined, color: AppColors.primary),
                 ),
-                title: const Text('Galería', style: TextStyle(color: AppColors.textPrimary)),
-                subtitle: const Text('Selecciona de tu galería', style: TextStyle(color: AppColors.textSecondary)),
+                title: Text('Galería', style: TextStyle(color: AppColors.textPrimary)),
+                subtitle: Text('Selecciona de tu galería', style: TextStyle(color: AppColors.textSecondary)),
                 onTap: () async {
                   Navigator.pop(context);
                   final photo = await ProfilePhotoService.pickFromGallery(widget.user.usuarioId);
@@ -119,7 +119,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       _photoTimestamp = DateTime.now().millisecondsSinceEpoch;
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('Foto de perfil guardada'),
                         backgroundColor: AppColors.success,
                         duration: Duration(seconds: 2),
@@ -136,10 +136,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     color: AppColors.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
+                  child: Icon(Icons.camera_alt_outlined, color: AppColors.primary),
                 ),
-                title: const Text('Cámara', style: TextStyle(color: AppColors.textPrimary)),
-                subtitle: const Text('Toma una nueva foto', style: TextStyle(color: AppColors.textSecondary)),
+                title: Text('Cámara', style: TextStyle(color: AppColors.textPrimary)),
+                subtitle: Text('Toma una nueva foto', style: TextStyle(color: AppColors.textSecondary)),
                 onTap: () async {
                   Navigator.pop(context);
                   final photo = await ProfilePhotoService.pickFromCamera(widget.user.usuarioId);
@@ -156,7 +156,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       _photoTimestamp = DateTime.now().millisecondsSinceEpoch;
                     });
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
+                      SnackBar(
                         content: Text('Foto de perfil guardada'),
                         backgroundColor: AppColors.success,
                         duration: Duration(seconds: 2),
@@ -174,10 +174,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       color: AppColors.error.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.delete_outline, color: AppColors.error),
+                    child: Icon(Icons.delete_outline, color: AppColors.error),
                   ),
-                  title: const Text('Eliminar foto', style: TextStyle(color: AppColors.error)),
-                  subtitle: const Text('Quitar foto de perfil', style: TextStyle(color: AppColors.textSecondary)),
+                  title: Text('Eliminar foto', style: TextStyle(color: AppColors.error)),
+                  subtitle: Text('Quitar foto de perfil', style: TextStyle(color: AppColors.textSecondary)),
                   onTap: () async {
                     Navigator.pop(context);
                     await ProfilePhotoService.deleteProfilePhoto(widget.user.usuarioId);
@@ -187,7 +187,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         _photoChanged = true;
                       });
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
+                        SnackBar(
                           content: Text('Foto de perfil eliminada'),
                           backgroundColor: AppColors.textSecondary,
                           duration: Duration(seconds: 2),
@@ -396,7 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Row(
+          title: Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 28),
               SizedBox(width: 12),
@@ -412,12 +412,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Esta acción desactivará tu cuenta. No podrás iniciar sesión hasta que un administrador la reactive.',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
-              const Text(
+              Text(
                 'Ingresa tu contraseña para confirmar:',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -428,7 +428,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               TextField(
                 controller: passwordController,
                 obscureText: obscurePassword,
-                style: const TextStyle(color: AppColors.textPrimary),
+                style: TextStyle(color: AppColors.textPrimary),
                 decoration: InputDecoration(
                   hintText: 'Tu contraseña',
                   hintStyle: TextStyle(
@@ -437,7 +437,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   errorText: errorText,
                   filled: true,
                   fillColor: AppColors.background,
-                  prefixIcon: const Icon(Icons.lock_outline, color: AppColors.error),
+                  prefixIcon: Icon(Icons.lock_outline, color: AppColors.error),
                   suffixIcon: IconButton(
                     icon: Icon(
                       obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
@@ -449,15 +449,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.error),
+                    borderSide: BorderSide(color: AppColors.error),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.error, width: 2),
+                    borderSide: BorderSide(color: AppColors.error, width: 2),
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppColors.error),
+                    borderSide: BorderSide(color: AppColors.error),
                   ),
                 ),
               ),
@@ -554,7 +554,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // Muestra mensaje de despedida
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('Tu cuenta ha sido desactivada'),
           backgroundColor: AppColors.primary,
         ),
@@ -639,7 +639,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ? Center(
                           child: Text(
                             widget.user.iniciales,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.primary,
                               fontSize: 32,
                               fontWeight: FontWeight.bold,
@@ -671,14 +671,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           const SizedBox(height: 8),
           TextButton(
             onPressed: _showPhotoOptions,
-            child: const Text(
+            child: Text(
               'Cambiar foto',
               style: TextStyle(color: AppColors.primary),
             ),
           ),
           Text(
             'ID: ${widget.user.usuarioId}',
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.textSecondary,
               fontSize: 12,
             ),
@@ -699,12 +699,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+          Icon(Icons.error_outline, color: AppColors.error, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _errorMessage!,
-              style: const TextStyle(color: AppColors.error),
+              style: TextStyle(color: AppColors.error),
             ),
           ),
         ],
@@ -723,12 +723,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 20),
+          Icon(Icons.check_circle_outline, color: AppColors.primary, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               _successMessage!,
-              style: const TextStyle(color: AppColors.primary),
+              style: TextStyle(color: AppColors.primary),
             ),
           ),
         ],
@@ -747,7 +747,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Información Personal',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -760,7 +760,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Campo Nombre
           TextFormField(
             controller: _nombreController,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.textPrimary),
             decoration: const InputDecoration(
               labelText: 'Nombre',
               prefixIcon: Icon(Icons.person_outline),
@@ -772,7 +772,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Campo Apellido
           TextFormField(
             controller: _apellidoController,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.textPrimary),
             decoration: const InputDecoration(
               labelText: 'Apellido',
               prefixIcon: Icon(Icons.person_outline),
@@ -785,7 +785,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextFormField(
             controller: _correoController,
             keyboardType: TextInputType.emailAddress,
-            style: const TextStyle(color: AppColors.textPrimary),
+            style: TextStyle(color: AppColors.textPrimary),
             decoration: const InputDecoration(
               labelText: 'Correo electrónico',
               prefixIcon: Icon(Icons.email_outlined),
@@ -812,7 +812,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 'Cambiar Contraseña',
                 style: TextStyle(
                   color: AppColors.textPrimary,
@@ -840,7 +840,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           // Campos de contraseña (solo si está activado)
           if (_changePassword) ...[
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'La nueva contraseña debe tener al menos 4 caracteres',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
@@ -850,7 +850,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
-              style: const TextStyle(color: AppColors.textPrimary),
+              style: TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Nueva contraseña',
                 prefixIcon: const Icon(Icons.lock_outline),
@@ -873,7 +873,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             TextFormField(
               controller: _confirmPasswordController,
               obscureText: _obscureConfirmPassword,
-              style: const TextStyle(color: AppColors.textPrimary),
+              style: TextStyle(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Confirmar contraseña',
                 prefixIcon: const Icon(Icons.lock_outline),
@@ -902,7 +902,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _saveChanges,
         child: _isLoading
-            ? const SizedBox(
+            ? SizedBox(
                 height: 24,
                 width: 24,
                 child: CircularProgressIndicator(
@@ -926,7 +926,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 24),
               SizedBox(width: 12),
@@ -941,7 +941,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'Al eliminar tu cuenta, no podrás iniciar sesión hasta que un administrador la reactive.',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
           ),
@@ -952,7 +952,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               onPressed: _isLoading ? null : _showDeleteAccountDialog,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
-                side: const BorderSide(color: AppColors.error),
+                side: BorderSide(color: AppColors.error),
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
               child: const Text('Eliminar mi cuenta'),

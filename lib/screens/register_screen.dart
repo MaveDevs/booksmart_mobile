@@ -104,7 +104,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (result.success) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Row(
+          content: Row(
             children: [
               Icon(Icons.check_circle, color: AppColors.background),
               SizedBox(width: 12),
@@ -162,7 +162,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: 2,
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.person_add_outlined,
                       size: 28,
                       color: AppColors.primary,
@@ -198,7 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.error_outline,
                           color: AppColors.error,
                           size: 20,
@@ -207,7 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Expanded(
                           child: Text(
                             _errorMessage!,
-                            style: const TextStyle(color: AppColors.error),
+                            style: TextStyle(color: AppColors.error),
                           ),
                         ),
                       ],
@@ -224,7 +224,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _nombreController,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(color: AppColors.textPrimary),
                         decoration: const InputDecoration(
                           labelText: 'Nombre',
                           prefixIcon: Icon(Icons.person_outline),
@@ -238,7 +238,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _apellidoController,
                         textCapitalization: TextCapitalization.words,
                         textInputAction: TextInputAction.next,
-                        style: const TextStyle(color: AppColors.textPrimary),
+                        style: TextStyle(color: AppColors.textPrimary),
                         decoration: const InputDecoration(
                           labelText: 'Apellido',
                         ),
@@ -255,7 +255,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   textInputAction: TextInputAction.next,
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary),
                   decoration: const InputDecoration(
                     labelText: 'Correo electronico',
                     hintText: 'tucorreo@ejemplo.com',
@@ -270,7 +270,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   textInputAction: TextInputAction.next,
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary),
                   decoration: InputDecoration(
                     labelText: 'Contrasena',
                     prefixIcon: const Icon(Icons.lock_outline),
@@ -294,7 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   textInputAction: TextInputAction.done,
-                  style: const TextStyle(color: AppColors.textPrimary),
+                  style: TextStyle(color: AppColors.textPrimary),
                   onFieldSubmitted: (_) => _register(),
                   decoration: InputDecoration(
                     labelText: 'Confirmar contrasena',
@@ -321,7 +321,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _register,
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 24,
                             width: 24,
                             child: CircularProgressIndicator(

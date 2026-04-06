@@ -43,4 +43,14 @@ class StorageService {
     final token = await getToken();
     return token != null && token.isNotEmpty;
   }
+
+  /// Lee un valor genérico por clave
+  static Future<String?> read(String key) async {
+    return await _storage.read(key: key);
+  }
+
+  /// Escribe un valor genérico por clave
+  static Future<void> write(String key, String value) async {
+    await _storage.write(key: key, value: value);
+  }
 }

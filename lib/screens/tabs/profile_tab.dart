@@ -4,6 +4,7 @@ import '../../config/app_theme.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_photo_service.dart';
+import '../../services/theme_service.dart';
 import '../login_screen.dart';
 import '../edit_profile_screen.dart';
 
@@ -72,11 +73,11 @@ class _ProfileTabState extends State<ProfileTab> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
-        title: const Text(
+        title: Text(
           'Cerrar Sesion',
           style: TextStyle(color: AppColors.textPrimary),
         ),
-        content: const Text(
+        content: Text(
           'Estas seguro de que quieres salir?',
           style: TextStyle(color: AppColors.textSecondary),
         ),
@@ -90,7 +91,7 @@ class _ProfileTabState extends State<ProfileTab> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
             ),
-            child: const Text(
+            child: Text(
               'Salir',
               style: TextStyle(color: AppColors.textPrimary),
             ),
@@ -165,7 +166,7 @@ class _ProfileTabState extends State<ProfileTab> {
                     _user != null
                         ? '${_user!.nombre[0]}${_user!.apellido[0]}'.toUpperCase()
                         : '?',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.primary,
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
@@ -198,7 +199,7 @@ class _ProfileTabState extends State<ProfileTab> {
           color: AppColors.surface,
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
             'No se pudieron cargar los datos',
             style: TextStyle(color: AppColors.textSecondary),
@@ -221,19 +222,19 @@ class _ProfileTabState extends State<ProfileTab> {
             label: 'Nombre',
             value: _user!.nombre,
           ),
-          const Divider(color: AppColors.greyDark, height: 24),
+          Divider(color: AppColors.greyDark, height: 24),
           _InfoRow(
             icon: Icons.person_outline,
             label: 'Apellido',
             value: _user!.apellido,
           ),
-          const Divider(color: AppColors.greyDark, height: 24),
+          Divider(color: AppColors.greyDark, height: 24),
           _InfoRow(
             icon: Icons.email_outlined,
             label: 'Correo',
             value: _user!.correo,
           ),
-          const Divider(color: AppColors.greyDark, height: 24),
+          Divider(color: AppColors.greyDark, height: 24),
           _InfoRow(
             icon: Icons.calendar_today_outlined,
             label: 'Miembro desde',
@@ -269,14 +270,8 @@ class _ProfileTabState extends State<ProfileTab> {
         ),
         const SizedBox(height: 12),
 
-        // Configuracion
-        _OptionTile(
-          icon: Icons.settings_outlined,
-          title: 'Configuracion',
-          onTap: () {
-            // Navegar a configuracion
-          },
-        ),
+        // Tema claro/oscuro
+        _ThemeToggleTile(),
         const SizedBox(height: 12),
 
         // Cerrar sesion
@@ -333,7 +328,7 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
@@ -341,7 +336,7 @@ class _InfoRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 16,
                 ),
@@ -350,6 +345,61 @@ class _InfoRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Toggle de tema claro/oscuro
+class _ThemeToggleTile extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final isDark = AppColors.isDark;
+    return GestureDetector(
+      onTap: () {
+        ThemeService.setThemeMode(
+          isDark ? ThemeMode.light : ThemeMode.dark,
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.greyDark),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              color: AppColors.primary,
+              size: 22,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                isDark ? 'Tema oscuro' : 'Tema claro',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Switch(
+              value: isDark,
+              onChanged: (value) {
+                ThemeService.setThemeMode(
+                  value ? ThemeMode.dark : ThemeMode.light,
+                );
+              },
+              activeColor: AppColors.primary,
+              activeTrackColor: AppColors.primarySoft,
+              inactiveThumbColor: AppColors.textSecondary,
+              inactiveTrackColor: AppColors.greyDark,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

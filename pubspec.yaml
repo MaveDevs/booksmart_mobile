@@ -54,6 +54,12 @@ dependencies:
   # Ubicación del dispositivo
   geolocator: ^13.0.2
 
+  # WebSocket para realtime
+  web_socket_channel: ^3.0.1
+
+  # Notificaciones locales
+  flutter_local_notifications: ^18.0.1
+
 dev_dependencies:
   # App icon configuration
   flutter_launcher_icons: ^0.14.1

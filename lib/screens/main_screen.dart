@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../config/app_theme.dart';
+import '../services/websocket_service.dart';
+import 'notifications_screen.dart';
 import 'tabs/search_tab.dart';
 import 'tabs/appointments_tab.dart';
 import 'tabs/profile_tab.dart';
@@ -28,19 +29,113 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Asegurar que el polling de notificaciones esté activo
+    WebSocketService.instance.startNotificationPolling();
+    debugPrint('[MainScreen] initState — polling iniciado');
+  }
+
+  void _openNotifications() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+    ).then((_) {
+      // Al volver, recargar conteo real desde API
+      WebSocketService.instance.refreshUnreadCount();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Leemos del ThemeData para que el rebuild ocurra al cambiar tema
+    final theme = Theme.of(context);
+    final navSurface = theme.colorScheme.surface;
+    final navPrimary = theme.colorScheme.primary;
+    final isDark = theme.brightness == Brightness.dark;
+    final navInactive = isDark ? const Color(0xFF9CB0CC) : const Color(0xFF64748B);
+
     return Scaffold(
-      body: _tabs[_currentIndex],
+      body: Stack(
+        children: [
+          _tabs[_currentIndex],
+          // Botón de notificaciones flotante
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            right: 16,
+            child: ValueListenableBuilder<int>(
+                valueListenable: WebSocketService.instance.unreadCount,
+                builder: (_, count, __) {
+                  return GestureDetector(
+                    onTap: _openNotifications,
+                    child: Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.08),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(
+                            Icons.notifications_outlined,
+                            color: navInactive,
+                            size: 22,
+                          ),
+                          if (count > 0)
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                width: 16,
+                                height: 16,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: theme.colorScheme.surface,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    count > 9 ? '9+' : '$count',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ),
+        ],
+      ),
       extendBody: true,
       bottomNavigationBar: Container(
         margin: const EdgeInsets.fromLTRB(24, 0, 24, 24),
         height: 70,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: navSurface,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.3),
+              color: Colors.black.withOpacity(isDark ? 0.4 : 0.12),
               blurRadius: 20,
               offset: const Offset(0, 10),
             ),
@@ -63,7 +158,7 @@ class _MainScreenState extends State<MainScreen> {
                     width: itemWidth - 16,
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: navPrimary.withOpacity(0.15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                     ),
@@ -76,6 +171,8 @@ class _MainScreenState extends State<MainScreen> {
                         icon: _navItems[index].icon,
                         label: _navItems[index].label,
                         isSelected: _currentIndex == index,
+                        activeColor: navPrimary,
+                        inactiveColor: navInactive,
                         onTap: () => setState(() => _currentIndex = index),
                       ),
                     ),
@@ -103,12 +200,16 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
+  final Color activeColor;
+  final Color inactiveColor;
   final VoidCallback onTap;
 
   const _NavItem({
     required this.icon,
     required this.label,
     required this.isSelected,
+    required this.activeColor,
+    required this.inactiveColor,
     required this.onTap,
   });
 
@@ -131,14 +232,14 @@ class _NavItem extends StatelessWidget {
                     children: [
                       Icon(
                         icon,
-                        color: AppColors.primary,
+                        color: activeColor,
                         size: 24,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         label,
-                        style: const TextStyle(
-                          color: AppColors.primary,
+                        style: TextStyle(
+                          color: activeColor,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
@@ -148,7 +249,7 @@ class _NavItem extends StatelessWidget {
                 : Icon(
                     key: const ValueKey('unselected'),
                     icon,
-                    color: AppColors.textSecondary,
+                    color: inactiveColor,
                     size: 24,
                   ),
           ),

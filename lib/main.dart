@@ -2,9 +2,19 @@ import 'package:flutter/material.dart';
 import 'config/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'services/api_service.dart';
+import 'services/local_notification_service.dart';
 import 'services/storage_service.dart';
+import 'services/theme_service.dart';
+import 'services/websocket_service.dart';
 
-void main() {
+/// Clave global del Navigator para navegación programática (ej. 401 redirect)
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await ThemeService.init();
+  await LocalNotificationService.init();
   runApp(const MyApp());
 }
 
@@ -13,17 +23,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'BookSmart',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      home: const AuthChecker(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeNotifier,
+      builder: (_, themeMode, __) {
+        return MaterialApp(
+          title: 'BookSmart',
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          builder: (context, child) {
+            AppColors.updateBrightness(
+                Theme.of(context).brightness == Brightness.dark);
+            return child!;
+          },
+          home: const AuthChecker(),
+        );
+      },
     );
   }
 }
 
 /// Widget que verifica si hay una sesion activa
-/// y muestra la pantalla correspondiente
 class AuthChecker extends StatefulWidget {
   const AuthChecker({super.key});
 
@@ -43,6 +65,19 @@ class _AuthCheckerState extends State<AuthChecker> {
 
   Future<void> _checkAuth() async {
     final hasToken = await StorageService.hasToken();
+    if (hasToken) {
+      // Si hay token pero no hay userId guardado, obtenerlo
+      final userId = await StorageService.getUserId();
+      if (userId == null) {
+        final userResult = await ApiService.getCurrentUser();
+        if (userResult.success && userResult.data != null) {
+          await StorageService.saveUserId(userResult.data!.usuarioId);
+        }
+      }
+      // Conectar WebSocket y escuchar notificaciones
+      await WebSocketService.instance.connect();
+      LocalNotificationService.startListening();
+    }
     setState(() {
       _isLoggedIn = hasToken;
       _isChecking = false;
@@ -53,8 +88,7 @@ class _AuthCheckerState extends State<AuthChecker> {
   Widget build(BuildContext context) {
     if (_isChecking) {
       return Scaffold(
-        backgroundColor: AppColors.background,
-        body: const Center(
+        body: Center(
           child: CircularProgressIndicator(
             color: AppColors.primary,
           ),

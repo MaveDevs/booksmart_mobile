@@ -1,0 +1,97 @@
+name: BookSmart CI/CD
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [main]
+
+# Evita builds duplicados si hay múltiples pushes rápidos
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ──────────────────────────────────────────────
+  # DEVELOP: Análisis estático + APK de Debug
+  # ──────────────────────────────────────────────
+  develop:
+    if: github.ref == 'refs/heads/develop'
+    name: "Develop — Analyze & Debug APK"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Inyectar API URL desde Secrets
+        run: |
+          sed -i "s|static const String baseUrl = '.*';|static const String baseUrl = '${{ secrets.API_BASE_URL }}';|" lib/config/api_config.dart
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Análisis estático (flutter analyze)
+        run: flutter analyze --no-fatal-infos
+
+      - name: Generar APK Debug
+        run: flutter build apk --debug
+
+      - name: Subir APK Debug como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: booksmart-debug-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          retention-days: 14
+
+  # ──────────────────────────────────────────────
+  # MAIN: APK de Release (producción)
+  # ──────────────────────────────────────────────
+  release:
+    if: github.ref == 'refs/heads/main'
+    name: "Main — Release APK"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v4
+        with:
+          channel: stable
+
+      - name: Inyectar API URL desde Secrets
+        run: |
+          sed -i "s|static const String baseUrl = '.*';|static const String baseUrl = '${{ secrets.API_BASE_URL }}';|" lib/config/api_config.dart
+
+      - name: Instalar dependencias
+        run: flutter pub get
+
+      - name: Análisis estático
+        run: flutter analyze --no-fatal-infos
+
+      - name: Generar APK Release
+        run: flutter build apk --release
+
+      - name: Subir APK Release como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: booksmart-release-${{ github.sha }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/local_notification_service.dart';
+import '../services/storage_service.dart';
+import '../services/websocket_service.dart';
 import 'register_screen.dart';
 import 'main_screen.dart';
 
@@ -65,6 +68,17 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (result.success) {
+      // Obtener y guardar el ID del usuario para futuras operaciones
+      final userResult = await ApiService.getCurrentUser();
+      if (userResult.success && userResult.data != null) {
+        await StorageService.saveUserId(userResult.data!.usuarioId);
+      }
+
+      // Conectar WebSocket y escuchar notificaciones
+      await WebSocketService.instance.connect();
+      LocalNotificationService.startListening();
+
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainScreen()),
       );
@@ -108,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Titulo
                   RichText(
                     textAlign: TextAlign.center,
-                    text: const TextSpan(
+                    text: TextSpan(
                       children: [
                         TextSpan(
                           text: 'Book',
@@ -150,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.error_outline,
                             color: AppColors.error,
                             size: 20,
@@ -159,7 +173,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: AppColors.error),
+                              style: TextStyle(color: AppColors.error),
                             ),
                           ),
                         ],
@@ -174,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
                     textInputAction: TextInputAction.next,
-                    style: const TextStyle(color: AppColors.textPrimary),
+                    style: TextStyle(color: AppColors.textPrimary),
                     decoration: const InputDecoration(
                       labelText: 'Correo electronico',
                       hintText: 'tucorreo@ejemplo.com',
@@ -189,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _passwordController,
                     obscureText: _obscurePassword,
                     textInputAction: TextInputAction.done,
-                    style: const TextStyle(color: AppColors.textPrimary),
+                    style: TextStyle(color: AppColors.textPrimary),
                     onFieldSubmitted: (_) => _login(),
                     decoration: InputDecoration(
                       labelText: 'Contrasena',
@@ -215,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _login,
                       child: _isLoading
-                          ? const SizedBox(
+                          ? SizedBox(
                               height: 24,
                               width: 24,
                               child: CircularProgressIndicator(

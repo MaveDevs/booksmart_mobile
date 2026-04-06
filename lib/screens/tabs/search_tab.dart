@@ -5,6 +5,7 @@ import '../../config/app_theme.dart';
 import '../../models/establishment_model.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import '../establishment_detail_screen.dart';
 
 // ── Categorías con palabras clave para filtrar ──
 class _Category {
@@ -35,6 +36,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
   final MapController _mapController = MapController();
+  final GlobalKey _topPanelKey = GlobalKey();
   late final AnimationController _transitionController;
   late final Animation<double> _fadeAnimation;
   late final Animation<Offset> _slideAnimation;
@@ -53,6 +55,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   bool _hasLocation = false;
   bool _showMap = false;
   bool _showSearchAreaButton = false;
+  double _topPanelHeight = 0;
 
   static const double _nearbyRadiusKm = 5.0;
   static const double _searchRadiusKm = 20.0;
@@ -181,10 +184,22 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
     });
     _applyFilters();
     _transitionController.forward(from: 0);
+    // Medir el panel superior después del primer frame
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measureTopPanel());
     if (categoryIndex == null) {
       Future.delayed(const Duration(milliseconds: 350), () {
         if (mounted) _searchFocus.requestFocus();
       });
+    }
+  }
+
+  void _measureTopPanel() {
+    final box = _topPanelKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null && mounted) {
+      final height = box.size.height + MediaQuery.of(context).padding.top;
+      if (height != _topPanelHeight) {
+        setState(() => _topPanelHeight = height);
+      }
     }
   }
 
@@ -235,7 +250,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.background,
         body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
       );
@@ -300,7 +315,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         children: [
           Row(
             children: [
-              const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
+              Icon(Icons.location_on_rounded, color: AppColors.primary, size: 20),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -314,7 +329,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
             ],
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Descubre',
             style: TextStyle(
               color: AppColors.textPrimary,
@@ -336,7 +351,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
               child: Row(
                 children: [
                   const SizedBox(width: 14),
-                  const Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
+                  Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -349,7 +364,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                   ),
                   Container(height: 28, width: 1, color: AppColors.greyDark),
                   const SizedBox(width: 12),
-                  const Icon(Icons.tune_rounded, color: AppColors.textSecondary, size: 20),
+                  Icon(Icons.tune_rounded, color: AppColors.textSecondary, size: 20),
                   const SizedBox(width: 14),
                 ],
               ),
@@ -414,6 +429,9 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   }
 
   Widget _buildNearbyHorizontalList() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = (screenWidth * 0.55).clamp(180.0, 280.0);
+
     return SizedBox(
       height: 180,
       child: ListView.builder(
@@ -433,7 +451,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                 });
               },
               child: Container(
-                width: 220,
+                width: cardWidth,
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(16),
@@ -450,7 +468,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         color: AppColors.primary.withOpacity(0.08),
                         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                       ),
-                      child: const Icon(Icons.store_rounded, color: AppColors.primary, size: 36),
+                      child: Icon(Icons.store_rounded, color: AppColors.primary, size: 36),
                     ),
                     Padding(
                       padding: const EdgeInsets.all(12),
@@ -459,7 +477,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         children: [
                           Text(
                             e.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -470,17 +488,17 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.location_on, size: 13, color: AppColors.primary),
+                              Icon(Icons.location_on, size: 13, color: AppColors.primary),
                               const SizedBox(width: 3),
                               Text(
                                 dist,
-                                style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w500),
+                                style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w500),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   e.direccion,
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -531,7 +549,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.store_rounded, color: AppColors.primary, size: 24),
+                      child: Icon(Icons.store_rounded, color: AppColors.primary, size: 24),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -540,7 +558,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         children: [
                           Text(
                             e.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
@@ -551,7 +569,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                           const SizedBox(height: 3),
                           Text(
                             e.direccion,
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -564,11 +582,11 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.location_on, size: 13, color: AppColors.primary),
+                            Icon(Icons.location_on, size: 13, color: AppColors.primary),
                             const SizedBox(width: 2),
                             Text(
                               dist,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.primary,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -577,7 +595,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                           ],
                         ),
                         const SizedBox(height: 4),
-                        const Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 20),
+                        Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary, size: 20),
                       ],
                     ),
                   ],
@@ -608,7 +626,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
           // Botón "Buscar en esta área"
           if (_showSearchAreaButton)
             Positioned(
-              top: MediaQuery.of(context).padding.top + 126,
+              top: _topPanelHeight + 12,
               left: 0,
               right: 0,
               child: Center(
@@ -685,9 +703,11 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         },
       ),
       children: [
-        // CartoDB Dark Matter — mapa oscuro minimalista
+        // CartoDB — mapa oscuro o claro según tema
         TileLayer(
-          urlTemplate: 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+          urlTemplate: AppColors.isDark
+              ? 'https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+              : 'https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
           userAgentPackageName: 'com.example.booksmart_movile_app',
         ),
 
@@ -706,7 +726,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                     shape: BoxShape.circle,
                     border: Border.all(color: AppColors.primary, width: 2),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: CircleAvatar(radius: 4, backgroundColor: AppColors.primary),
                   ),
                 ),
@@ -724,7 +744,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     decoration: BoxDecoration(
-                      color: isSelected ? AppColors.primary : const Color(0xFF2A2A2A),
+                      color: isSelected ? AppColors.primary : AppColors.surfaceLight,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: isSelected ? Colors.white : AppColors.primary,
@@ -757,6 +777,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   Widget _buildMapTopPanel() {
     return SafeArea(
       child: Column(
+        key: _topPanelKey,
         mainAxisSize: MainAxisSize.min,
         children: [
           // Barra de búsqueda con botón atrás — estilo Didi/Uber Eats
@@ -765,7 +786,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+                  icon: Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
                   style: IconButton.styleFrom(backgroundColor: AppColors.surface),
                   onPressed: _closeMapView,
                 ),
@@ -781,12 +802,12 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                     child: TextField(
                       controller: _searchController,
                       focusNode: _searchFocus,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
                       onChanged: (_) => _applyFilters(),
                       decoration: InputDecoration(
                         hintText: 'Buscar barbería, salón, spa...',
                         hintStyle: TextStyle(color: AppColors.textSecondary.withOpacity(0.5), fontSize: 15),
-                        prefixIcon: const Padding(
+                        prefixIcon: Padding(
                           padding: EdgeInsets.only(left: 14, right: 8),
                           child: Icon(Icons.search_rounded, color: AppColors.primary, size: 22),
                         ),
@@ -797,7 +818,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                                   _searchController.clear();
                                   _applyFilters();
                                 },
-                                child: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
+                                child: Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 18),
                               )
                             : null,
                         border: InputBorder.none,
@@ -876,7 +897,15 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
           onTap: () {
-            // TODO: Navegar a detalle del establecimiento
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => EstablishmentDetailScreen(
+                  establishment: e,
+                  distance: dist,
+                ),
+              ),
+            );
           },
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -893,7 +922,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         color: AppColors.primary.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.store_rounded, color: AppColors.primary, size: 26),
+                      child: Icon(Icons.store_rounded, color: AppColors.primary, size: 26),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -902,7 +931,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                         children: [
                           Text(
                             e.nombre,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -911,16 +940,16 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                           const SizedBox(height: 2),
                           Row(
                             children: [
-                              const Icon(Icons.location_on, size: 14, color: AppColors.primary),
+                              Icon(Icons.location_on, size: 14, color: AppColors.primary),
                               const SizedBox(width: 3),
-                              Text(dist, style: const TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w500)),
+                              Text(dist, style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ],
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: AppColors.textSecondary, size: 20),
+                      icon: Icon(Icons.close, color: AppColors.textSecondary, size: 20),
                       onPressed: _clearSelection,
                     ),
                   ],
@@ -928,24 +957,24 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                 if (e.descripcion.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Text(e.descripcion,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     maxLines: 2, overflow: TextOverflow.ellipsis),
                 ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
-                    const Icon(Icons.place_outlined, size: 14, color: AppColors.textSecondary),
+                    Icon(Icons.place_outlined, size: 14, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(e.direccion,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                     if (e.telefono.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      const Icon(Icons.phone_outlined, size: 14, color: AppColors.textSecondary),
+                      Icon(Icons.phone_outlined, size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
-                      Text(e.telefono, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      Text(e.telefono, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     ],
                   ],
                 ),
@@ -958,14 +987,17 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   }
 
   Widget _buildMapBottomList() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = (screenWidth * 0.48).clamp(170.0, 260.0);
+
     return Positioned(
-      bottom: 90,
+      bottom: 100,
       left: 0,
       right: 0,
       height: 120,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: _filteredEstablishments.length,
         itemBuilder: (context, index) {
           final e = _filteredEstablishments[index];
@@ -975,7 +1007,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
             child: GestureDetector(
               onTap: () => _selectEstablishment(e),
               child: Container(
-                width: 200,
+                width: cardWidth,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
@@ -987,18 +1019,18 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(e.nombre,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
+                      style: TextStyle(color: AppColors.textPrimary, fontSize: 14, fontWeight: FontWeight.w600),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 6),
                     Text(e.direccion,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                     const Spacer(),
                     Row(
                       children: [
-                        const Icon(Icons.location_on, size: 12, color: AppColors.primary),
+                        Icon(Icons.location_on, size: 12, color: AppColors.primary),
                         const SizedBox(width: 3),
-                        Text(dist, style: const TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w500)),
+                        Text(dist, style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w500)),
                       ],
                     ),
                   ],
@@ -1025,9 +1057,9 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.search_off_rounded, color: AppColors.textSecondary, size: 36),
+            Icon(Icons.search_off_rounded, color: AppColors.textSecondary, size: 36),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'No se encontraron resultados',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
             ),
@@ -1050,7 +1082,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         backgroundColor: AppColors.surface,
         heroTag: 'center_btn',
         onPressed: () => _mapController.move(LatLng(_userLat, _userLon), 13.0),
-        child: const Icon(Icons.my_location, color: AppColors.primary, size: 20),
+        child: Icon(Icons.my_location, color: AppColors.primary, size: 20),
       ),
     );
   }
@@ -1067,7 +1099,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           color: AppColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.bold,
