@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../config/app_theme.dart';
+import '../../config/page_transitions.dart';
 import '../../models/user_model.dart';
 import '../../services/api_service.dart';
 import '../../services/profile_photo_service.dart';
@@ -104,7 +105,7 @@ class _ProfileTabState extends State<ProfileTab> {
       await ApiService.logout();
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          appFadeRoute(const LoginScreen()),
           (route) => false,
         );
       }
@@ -257,9 +258,7 @@ class _ProfileTabState extends State<ProfileTab> {
             
             // Navega a editar perfil y espera resultado
             final result = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(
-                builder: (_) => EditProfileScreen(user: _user!),
-              ),
+              appRoute(EditProfileScreen(user: _user!)),
             );
             
             // Si hubo cambios (result == true), recarga los datos

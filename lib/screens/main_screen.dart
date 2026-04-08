@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../config/page_transitions.dart';
 import '../services/websocket_service.dart';
 import 'notifications_screen.dart';
 import 'tabs/search_tab.dart';
@@ -39,7 +40,7 @@ class _MainScreenState extends State<MainScreen> {
   void _openNotifications() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      appRoute(const NotificationsScreen()),
     ).then((_) {
       // Al volver, recargar conteo real desde API
       WebSocketService.instance.refreshUnreadCount();

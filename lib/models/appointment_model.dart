@@ -10,6 +10,7 @@ class AppointmentModel {
   // Campos opcionales que pueden venir con la relación expandida
   final String? servicioNombre;
   final String? establecimientoNombre;
+  final int? establecimientoId;
 
   AppointmentModel({
     required this.citaId,
@@ -21,6 +22,7 @@ class AppointmentModel {
     required this.estado,
     this.servicioNombre,
     this.establecimientoNombre,
+    this.establecimientoId,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +36,7 @@ class AppointmentModel {
       estado: json['estado'] as String? ?? 'PENDIENTE',
       servicioNombre: json['servicio_nombre'] as String?,
       establecimientoNombre: json['establecimiento_nombre'] as String?,
+      establecimientoId: json['establecimiento_id'] as int?,
     );
   }
 

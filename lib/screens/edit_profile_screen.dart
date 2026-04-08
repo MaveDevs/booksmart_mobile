@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
+import '../config/page_transitions.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
@@ -548,8 +549,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       // Navega al login y limpia el stack de navegación
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false, // Elimina todas las rutas anteriores
+        appFadeRoute(const LoginScreen()),
+        (route) => false,
       );
 
       // Muestra mensaje de despedida

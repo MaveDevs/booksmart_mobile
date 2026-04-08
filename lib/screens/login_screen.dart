@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../services/api_service.dart';
 import '../services/local_notification_service.dart';
+import '../config/page_transitions.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 import 'register_screen.dart';
@@ -80,10 +81,35 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainScreen()),
+        appFadeRoute(const MainScreen()),
       );
     } else {
-      setState(() => _errorMessage = result.error);
+      final msg = result.error ?? 'Error desconocido';
+      setState(() => _errorMessage = msg);
+
+      if (mounted) {
+        final isConnection = msg.contains('conexión') || msg.contains('internet') || msg.contains('servidor');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  isConnection ? Icons.wifi_off_rounded : Icons.lock_outline,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(child: Text(msg)),
+              ],
+            ),
+            backgroundColor: isConnection ? Colors.orange.shade800 : AppColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     }
   }
 
@@ -253,9 +279,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const RegisterScreen(),
-                            ),
+                            appRoute(const RegisterScreen()),
                           );
                         },
                         child: const Text('Registrate'),

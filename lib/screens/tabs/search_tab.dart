@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../config/app_theme.dart';
+import '../../config/page_transitions.dart';
 import '../../models/establishment_model.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
@@ -899,12 +900,10 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
           onTap: () {
             Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => EstablishmentDetailScreen(
-                  establishment: e,
-                  distance: dist,
-                ),
-              ),
+              appRoute(EstablishmentDetailScreen(
+                establishment: e,
+                distance: dist,
+              )),
             );
           },
           child: Padding(

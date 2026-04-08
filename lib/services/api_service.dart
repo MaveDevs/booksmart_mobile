@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -103,17 +104,19 @@ class ApiService {
           return ApiResult.failure(detail[0]['msg'] as String? ?? 'Error de validacion');
         }
         return ApiResult.failure('Datos invalidos');
-      } else if (response.statusCode == 401) {
-        return ApiResult.failure('Correo o contrasena incorrectos');
+      } else if (response.statusCode == 400 || response.statusCode == 401 || response.statusCode == 404) {
+        return ApiResult.failure('Correo o contraseña incorrectos. Por favor, verifica tus datos.');
       } else {
-        return ApiResult.failure('Error del servidor: ${response.statusCode}');
+        return ApiResult.failure('Error del servidor (${response.statusCode}). Intenta de nuevo más tarde.');
       }
     } on SocketException {
-      return ApiResult.failure('Sin conexion a internet. Verifica tu red.');
+      return ApiResult.failure('Sin conexión a internet. Verifica tu red e intenta de nuevo.');
+    } on TimeoutException {
+      return ApiResult.failure('El servidor no responde. Intenta de nuevo más tarde.');
     } on http.ClientException {
-      return ApiResult.failure('Error de conexion. Verifica que el servidor este activo.');
+      return ApiResult.failure('Error de conexión. Verifica que tengas acceso a internet.');
     } catch (e) {
-      return ApiResult.failure('Error inesperado: $e');
+      return ApiResult.failure('Error inesperado. Intenta de nuevo.');
     }
   }
 
@@ -394,18 +397,45 @@ class ApiService {
     }
   }
 
-  /// Crea una nueva calificación
+  /// Obtiene las reseñas del usuario autenticado
+  static Future<ApiResult<List<RatingModel>>> getMyRatings() async {
+    try {
+      final response = await _authenticatedRequest((token) => http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/v1/ratings/me'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ));
+
+      if (response == null) return ApiResult.failure('Sesion expirada');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final ratings = data.map((json) => RatingModel.fromJson(json)).toList();
+        return ApiResult.success(ratings);
+      } else {
+        return ApiResult.failure('Error al obtener reseñas');
+      }
+    } on SocketException {
+      return ApiResult.failure('Sin conexion a internet');
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+    }
+  }
+
+  /// Crea una nueva reseña
   static Future<ApiResult<RatingModel>> createRating({
     required int establecimientoId,
     required int usuarioId,
-    required int puntuacion,
+    required int calificacion,
     String? comentario,
   }) async {
     try {
       final body = <String, dynamic>{
         'establecimiento_id': establecimientoId,
         'usuario_id': usuarioId,
-        'puntuacion': puntuacion,
+        'calificacion': calificacion,
       };
       if (comentario != null && comentario.isNotEmpty) {
         body['comentario'] = comentario;
@@ -425,8 +455,11 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return ApiResult.success(RatingModel.fromJson(data));
+      } else if (response.statusCode == 400 || response.statusCode == 409) {
+        final detail = _extractDetail(response.body);
+        return ApiResult.failure(detail ?? 'Ya calificaste este establecimiento');
       } else {
-        return ApiResult.failure('Error al enviar calificacion');
+        return ApiResult.failure('Error al enviar reseña');
       }
     } on SocketException {
       return ApiResult.failure('Sin conexion a internet');

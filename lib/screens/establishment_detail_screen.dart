@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
+import '../config/page_transitions.dart';
 import '../models/establishment_model.dart';
 import '../models/service_model.dart';
 import '../models/rating_model.dart';
@@ -64,7 +65,7 @@ class _EstablishmentDetailScreenState extends State<EstablishmentDetailScreen> {
 
   double get _averageRating {
     if (_ratings.isEmpty) return 0;
-    final total = _ratings.fold<int>(0, (sum, r) => sum + r.puntuacion);
+    final total = _ratings.fold<int>(0, (sum, r) => sum + r.calificacion);
     return total / _ratings.length;
   }
 
@@ -269,7 +270,7 @@ class _EstablishmentDetailScreenState extends State<EstablishmentDetailScreen> {
     return Column(
       children: List.generate(5, (i) {
         final star = 5 - i;
-        final count = _ratings.where((r) => r.puntuacion == star).length;
+        final count = _ratings.where((r) => r.calificacion == star).length;
         final fraction = total > 0 ? count / total : 0.0;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -425,12 +426,10 @@ class _EstablishmentDetailScreenState extends State<EstablishmentDetailScreen> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => BookingScreen(
+                    appRoute(BookingScreen(
                         service: service,
                         establishment: est,
-                      ),
-                    ),
+                    )),
                   );
                 },
                 child: Container(
@@ -513,7 +512,7 @@ class _EstablishmentDetailScreenState extends State<EstablishmentDetailScreen> {
         children: [
           Row(
             children: [
-              _buildStarRow(rating.puntuacion.toDouble(), size: 14),
+              _buildStarRow(rating.calificacion.toDouble(), size: 14),
               const Spacer(),
               Text(
                 _formatDate(rating.fecha),
