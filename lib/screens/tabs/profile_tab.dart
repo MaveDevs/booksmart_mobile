@@ -91,10 +91,18 @@ class _ProfileTabState extends State<ProfileTab> {
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: Text(
+            child: const Text(
               'Salir',
-              style: TextStyle(color: AppColors.textPrimary),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
