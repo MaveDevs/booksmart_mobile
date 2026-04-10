@@ -68,12 +68,16 @@ class WebSocketService {
   }
 
   /// Carga el conteo de notificaciones no leídas desde el REST API
+  /// Filtra las notificaciones descartadas localmente por el usuario
   Future<void> refreshUnreadCount() async {
     try {
       final result = await ApiService.getMyNotifications();
       if (result.success && result.data != null) {
-        final unread = result.data!.where((n) => !n.leida).length;
-        debugPrint('[Notifications] Unread count from API: $unread (total: ${result.data!.length})');
+        final dismissedIds = await StorageService.getDismissedNotificationIds();
+        final unread = result.data!
+            .where((n) => !n.leida && !dismissedIds.contains(n.notificacionId))
+            .length;
+        debugPrint('[Notifications] Unread count from API: $unread (total: ${result.data!.length}, dismissed: ${dismissedIds.length})');
         unreadCount.value = unread;
       } else {
         debugPrint('[Notifications] API error: ${result.error}');

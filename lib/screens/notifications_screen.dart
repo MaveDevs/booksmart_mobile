@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../models/notification_model.dart';
 import '../services/api_service.dart';
+import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
 
 /// Pantalla de notificaciones in-app
@@ -29,21 +30,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _error = null;
     });
 
-    debugPrint('[NotifScreen] Cargando notificaciones...');
     final result = await ApiService.getMyNotifications();
+    final dismissedIds = await StorageService.getDismissedNotificationIds();
 
     if (mounted) {
       setState(() {
         _isLoading = false;
         if (result.success && result.data != null) {
-          _notifications = result.data!;
-          // Sincronizar conteo de no leídos con la realidad
+          // Filtrar las notificaciones descartadas por el usuario
+          _notifications = result.data!
+              .where((n) => !dismissedIds.contains(n.notificacionId))
+              .toList();
           final unread = _notifications.where((n) => !n.leida).length;
           WebSocketService.instance.unreadCount.value = unread;
-          debugPrint('[NotifScreen] ${_notifications.length} notificaciones cargadas, $unread no leídas');
         } else {
           _error = result.error;
-          debugPrint('[NotifScreen] Error: ${result.error}');
         }
       });
     }
@@ -54,12 +55,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final result =
         await ApiService.markNotificationRead(notification.notificacionId);
+
+    if (!mounted) return;
+
     if (result.success) {
-      // También notificar vía WS
       WebSocketService.instance.markRead(notification.notificacionId);
 
       setState(() {
-        final idx = _notifications.indexOf(notification);
+        final idx = _notifications.indexWhere(
+            (n) => n.notificacionId == notification.notificacionId);
         if (idx != -1) {
           _notifications[idx] = NotificationModel(
             notificacionId: notification.notificacionId,
@@ -73,30 +77,212 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }
       });
 
-      // Decrementar el contador global
+      final count = WebSocketService.instance.unreadCount.value;
+      if (count > 0) {
+        WebSocketService.instance.unreadCount.value = count - 1;
+      }
+    } else {
+      debugPrint('[Notifications] Error marcando como leída: ${result.error}');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Error al marcar como leída'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _markAllAsRead() async {
+    final unread = _notifications.where((n) => !n.leida).toList();
+    if (unread.isEmpty) return;
+
+    // Marcar todas en paralelo
+    final results = await Future.wait(
+      unread.map((n) => ApiService.markNotificationRead(n.notificacionId)),
+    );
+
+    final allSuccess = results.every((r) => r.success);
+    final successCount = results.where((r) => r.success).length;
+
+    if (mounted) {
+      if (allSuccess) {
+        setState(() {
+          _notifications = _notifications.map((n) {
+            if (!n.leida) {
+              return NotificationModel(
+                notificacionId: n.notificacionId,
+                usuarioId: n.usuarioId,
+                tipo: n.tipo,
+                contenido: n.contenido,
+                leida: true,
+                fechaCreacion: n.fechaCreacion,
+                citaId: n.citaId,
+              );
+            }
+            return n;
+          }).toList();
+        });
+        WebSocketService.instance.unreadCount.value = 0;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Todas las notificaciones marcadas como leídas'),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        debugPrint('[Notifications] markAllAsRead: $successCount/${unread.length} exitosas');
+        // Recargar para reflejar el estado real del backend
+        await _loadNotifications();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al marcar algunas notificaciones ($successCount/${unread.length} exitosas)'),
+              backgroundColor: AppColors.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _removeNotification(NotificationModel notification) async {
+    // Marcar como leída si no lo está, luego quitar de la lista
+    if (!notification.leida) {
+      final result = await ApiService.markNotificationRead(notification.notificacionId);
+      debugPrint('[Notifications] removeNotification markRead: success=${result.success}');
       final count = WebSocketService.instance.unreadCount.value;
       if (count > 0) {
         WebSocketService.instance.unreadCount.value = count - 1;
       }
     }
+    // Persistir el ID como descartado para que no reaparezca
+    await StorageService.dismissNotification(notification.notificacionId);
+    if (mounted) {
+      setState(() {
+        _notifications.removeWhere(
+            (n) => n.notificacionId == notification.notificacionId);
+      });
+    }
+  }
+
+  Future<void> _clearAllNotifications() async {
+    if (_notifications.isEmpty) return;
+
+    // Marcar todas como leídas y persistir como descartadas
+    final allIds = _notifications.map((n) => n.notificacionId).toList();
+    final unread = _notifications.where((n) => !n.leida).toList();
+
+    // Await las llamadas para asegurar que se marcan en el backend
+    if (unread.isNotEmpty) {
+      await Future.wait(
+        unread.map((n) => ApiService.markNotificationRead(n.notificacionId)),
+      );
+    }
+    await StorageService.dismissNotifications(allIds);
+    WebSocketService.instance.unreadCount.value = 0;
+
+    if (mounted) {
+      setState(() {
+        _notifications.clear();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Notificaciones eliminadas'),
+          backgroundColor: AppColors.primary,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showOptionsMenu() {
+    final hasUnread = _notifications.any((n) => !n.leida);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(top: 12, bottom: 16),
+              decoration: BoxDecoration(
+                color: AppColors.grey,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            if (hasUnread)
+              ListTile(
+                leading: Icon(Icons.done_all_rounded, color: AppColors.primary),
+                title: Text(
+                  'Marcar todas como leídas',
+                  style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _markAllAsRead();
+                },
+              ),
+            ListTile(
+              leading: Icon(Icons.delete_sweep_rounded, color: AppColors.error),
+              title: Text(
+                'Borrar todas las notificaciones',
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 15),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _clearAllNotifications();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 
   IconData _iconForType(String tipo) {
-    return switch (tipo) {
-      'mensaje'          => Icons.chat_bubble_outline_rounded,
-      'cita_confirmada'  => Icons.check_circle_outline_rounded,
-      'cita_cancelada'   => Icons.cancel_outlined,
-      'cita_completada'  => Icons.task_alt_rounded,
+    return switch (tipo.toUpperCase()) {
+      'MENSAJE'          => Icons.chat_bubble_outline_rounded,
+      'CITA_CONFIRMADA'  => Icons.check_circle_outline_rounded,
+      'CITA_CANCELADA'   => Icons.cancel_outlined,
+      'CITA_COMPLETADA'  => Icons.task_alt_rounded,
+      'INFO'             => Icons.info_outline_rounded,
+      'WARNING'          => Icons.warning_amber_rounded,
+      'ERROR'            => Icons.error_outline_rounded,
       _                  => Icons.notifications_outlined,
     };
   }
 
   Color _colorForType(String tipo) {
-    return switch (tipo) {
-      'mensaje'          => AppColors.primary,
-      'cita_confirmada'  => AppColors.success,
-      'cita_cancelada'   => AppColors.error,
-      'cita_completada'  => AppColors.primary,
+    return switch (tipo.toUpperCase()) {
+      'MENSAJE'          => AppColors.primary,
+      'CITA_CONFIRMADA'  => AppColors.success,
+      'CITA_CANCELADA'   => AppColors.error,
+      'CITA_COMPLETADA'  => AppColors.primary,
+      'INFO'             => AppColors.primary,
+      'WARNING'          => AppColors.pending,
+      'ERROR'            => AppColors.error,
       _                  => AppColors.pending,
     };
   }
@@ -120,6 +306,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasNotifications = _notifications.isNotEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -139,6 +327,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          if (!_isLoading && hasNotifications)
+            IconButton(
+              icon: Icon(Icons.more_vert_rounded,
+                  color: AppColors.textPrimary, size: 22),
+              onPressed: _showOptionsMenu,
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: AppColors.grey),
@@ -159,12 +355,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         itemCount: _notifications.length,
                         itemBuilder: (context, index) {
                           final n = _notifications[index];
-                          return _NotificationTile(
-                            notification: n,
-                            icon: _iconForType(n.tipo),
-                            color: _colorForType(n.tipo),
-                            timeAgo: _formatDate(n.fechaCreacion),
-                            onTap: () => _markAsRead(n),
+                          return Dismissible(
+                            key: ValueKey(n.notificacionId),
+                            direction: DismissDirection.endToStart,
+                            onDismissed: (_) => _removeNotification(n),
+                            background: Container(
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 24),
+                              color: AppColors.error.withValues(alpha: 0.8),
+                              child: const Icon(Icons.delete_outline_rounded,
+                                  color: Colors.white, size: 24),
+                            ),
+                            child: _NotificationTile(
+                              notification: n,
+                              icon: _iconForType(n.tipo),
+                              color: _colorForType(n.tipo),
+                              timeAgo: _formatDate(n.fechaCreacion),
+                              onTap: () => _markAsRead(n),
+                            ),
                           );
                         },
                       ),

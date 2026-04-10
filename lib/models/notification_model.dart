@@ -22,9 +22,9 @@ class NotificationModel {
       notificacionId: json['notificacion_id'] as int? ?? json['id'] as int? ?? 0,
       usuarioId: json['usuario_id'] as int? ?? 0,
       tipo: json['tipo'] as String? ?? '',
-      contenido: json['contenido'] as String? ?? '',
+      contenido: json['mensaje'] as String? ?? json['contenido'] as String? ?? '',
       leida: json['leida'] as bool? ?? false,
-      fechaCreacion: json['fecha_creacion'] as String?,
+      fechaCreacion: json['fecha_envio'] as String? ?? json['fecha_creacion'] as String?,
       citaId: json['cita_id'] as int?,
     );
   }

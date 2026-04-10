@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:workmanager/workmanager.dart';
 import '../config/api_config.dart';
 import '../main.dart' show navigatorKey;
 import '../models/auth_response.dart';
@@ -302,6 +303,11 @@ class ApiService {
 
   /// Cierra la sesion del usuario
   static Future<void> logout() async {
+    // Importación dinámica — cancelar tareas de background
+    try {
+      final Workmanager workmanager = Workmanager();
+      await workmanager.cancelAll();
+    } catch (_) {}
     await StorageService.clearAll();
   }
 
@@ -724,9 +730,11 @@ class ApiService {
   /// Marca una notificación como leída
   static Future<ApiResult<bool>> markNotificationRead(int notificationId) async {
     try {
+      final url = '${ApiConfig.baseUrl}/api/v1/notifications/$notificationId';
+      debugPrint('[Notifications] PATCH $url body: {"leida": true}');
+
       final response = await _authenticatedRequest((token) => http.patch(
-        Uri.parse(
-            '${ApiConfig.baseUrl}/api/v1/notifications/$notificationId/'),
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -734,12 +742,17 @@ class ApiService {
         body: jsonEncode({'leida': true}),
       ));
 
-      if (response == null) return ApiResult.failure('Sesion expirada');
+      if (response == null) {
+        debugPrint('[Notifications] PATCH markRead: response null (sesion expirada)');
+        return ApiResult.failure('Sesion expirada');
+      }
+
+      debugPrint('[Notifications] PATCH markRead status: ${response.statusCode} body: ${response.body}');
 
       if (response.statusCode == 200) {
         return ApiResult.success(true);
       } else {
-        return ApiResult.failure('Error al marcar notificacion');
+        return ApiResult.failure('Error al marcar notificacion (${response.statusCode})');
       }
     } on SocketException {
       return ApiResult.failure('Sin conexion a internet');

@@ -3,6 +3,7 @@ import 'config/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/api_service.dart';
+import 'services/background_service.dart';
 import 'services/local_notification_service.dart';
 import 'services/storage_service.dart';
 import 'services/theme_service.dart';
@@ -15,6 +16,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ThemeService.init();
   await LocalNotificationService.init();
+  await BackgroundService.init();
 
   // Verificar token ANTES de runApp para evitar pantalla de carga intermedia
   final hasToken = await StorageService.hasToken();
@@ -77,6 +79,8 @@ class _PostLoginInitState extends State<_PostLoginInit> {
     // Conectar WebSocket y notificaciones en background
     await WebSocketService.instance.connect();
     LocalNotificationService.startListening();
+    // Registrar tarea en background para notificaciones con app cerrada
+    await BackgroundService.startPeriodicCheck();
   }
 
   @override

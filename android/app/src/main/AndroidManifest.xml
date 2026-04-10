@@ -4,7 +4,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:label="booksmart_movile_app"
+        android:label="BookSmart"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

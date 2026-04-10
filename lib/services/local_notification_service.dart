@@ -2,12 +2,15 @@ import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../models/appointment_model.dart';
 import 'api_service.dart';
+import 'storage_service.dart';
 import 'websocket_service.dart';
 
 /// Servicio de notificaciones locales del dispositivo.
 /// Escucha eventos del WebSocket y muestra notificaciones push locales.
-/// También hace polling periódico para detectar nuevas notificaciones.
+/// También hace polling periódico para detectar nuevas notificaciones,
+/// cambios de estado en citas y nuevos mensajes.
 class LocalNotificationService {
   static final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -15,6 +18,10 @@ class LocalNotificationService {
   static StreamSubscription<WsEvent>? _subscription;
   static Timer? _pollTimer;
   static int _lastKnownNotificationId = 0;
+
+  // Tracking de estados de citas para detectar cambios
+  static Map<int, String> _appointmentStates = {};
+  static bool _appointmentStatesInitialized = false;
 
   /// Inicializa el plugin de notificaciones locales
   static Future<void> init() async {
@@ -49,16 +56,17 @@ class LocalNotificationService {
     _subscription?.cancel();
     _subscription = WebSocketService.instance.events.listen(_handleEvent);
 
-    // Polling cada 30s para detectar nuevas notificaciones
-    // (funciona como fallback cuando WS no está conectado)
+    // Polling cada 30s para detectar nuevas notificaciones y cambios en citas
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      debugPrint('[LocalNotif] Poll tick — verificando nuevas notificaciones');
+      debugPrint('[LocalNotif] Poll tick — verificando cambios');
       _checkForNewNotifications();
+      _checkForAppointmentChanges();
     });
 
-    // Cargar el último ID conocido
+    // Cargar el último ID conocido y estados iniciales
     _initLastKnownId();
+    _initAppointmentStates();
   }
 
   static void stopListening() {
@@ -66,17 +74,34 @@ class LocalNotificationService {
     _subscription = null;
     _pollTimer?.cancel();
     _pollTimer = null;
+    _appointmentStates.clear();
+    _appointmentStatesInitialized = false;
   }
 
-  /// Carga el ID más alto de las notificaciones actuales
+  /// Carga el ID más alto de las notificaciones actuales.
+  /// Primero intenta leer el último ID conocido del storage persistente;
+  /// si no existe (primera vez), usa el máximo actual sin notificar.
+  /// Si existe, verifica inmediatamente si hay nuevas notificaciones.
   static Future<void> _initLastKnownId() async {
     try {
+      // Intentar cargar del storage persistente (de la sesión anterior)
+      final stored = await StorageService.read('bg_last_notif_id');
+      if (stored != null) {
+        _lastKnownNotificationId = int.tryParse(stored) ?? 0;
+        debugPrint('[LocalNotif] lastKnownId from storage: $_lastKnownNotificationId');
+        // Verificar inmediatamente si hay notificaciones nuevas
+        await _checkForNewNotifications();
+        return;
+      }
+
+      // Primera vez: establecer al máximo actual sin notificar
       final result = await ApiService.getMyNotifications();
       if (result.success && result.data != null && result.data!.isNotEmpty) {
         _lastKnownNotificationId = result.data!
             .map((n) => n.notificacionId)
             .reduce((a, b) => a > b ? a : b);
-        debugPrint('[LocalNotif] lastKnownId=$_lastKnownNotificationId (${result.data!.length} notificaciones)');
+        await StorageService.write('bg_last_notif_id', _lastKnownNotificationId.toString());
+        debugPrint('[LocalNotif] lastKnownId (first time)=$_lastKnownNotificationId (${result.data!.length} notificaciones)');
       } else {
         debugPrint('[LocalNotif] _initLastKnownId: sin notificaciones previas (success=${result.success}, data=${result.data?.length ?? 0}, error=${result.error})');
       }
@@ -94,10 +119,14 @@ class LocalNotificationService {
         return;
       }
 
-      debugPrint('[LocalNotif] Poll: ${result.data!.length} total, lastKnownId=$_lastKnownNotificationId');
+      final dismissedIds = await StorageService.getDismissedNotificationIds();
+
+      debugPrint('[LocalNotif] Poll: ${result.data!.length} total, lastKnownId=$_lastKnownNotificationId, dismissed=${dismissedIds.length}');
 
       final newUnread = result.data!
-          .where((n) => !n.leida && n.notificacionId > _lastKnownNotificationId)
+          .where((n) => !n.leida
+              && n.notificacionId > _lastKnownNotificationId
+              && !dismissedIds.contains(n.notificacionId))
           .toList();
 
       debugPrint('[LocalNotif] Poll: ${newUnread.length} nuevas no leídas');
@@ -120,6 +149,8 @@ class LocalNotificationService {
             .reduce((a, b) => a > b ? a : b);
         if (maxId > _lastKnownNotificationId) {
           _lastKnownNotificationId = maxId;
+          // Sincronizar con el worker de background
+          StorageService.write('bg_last_notif_id', maxId.toString());
         }
       }
     } catch (e) {
@@ -127,15 +158,92 @@ class LocalNotificationService {
     }
   }
 
+  /// Carga los estados iniciales de las citas (sin notificar)
+  static Future<void> _initAppointmentStates() async {
+    try {
+      final result = await ApiService.getMyAppointments();
+      if (result.success && result.data != null) {
+        _appointmentStates = {
+          for (final a in result.data!) a.citaId: a.estado,
+        };
+        _appointmentStatesInitialized = true;
+        debugPrint('[LocalNotif] Citas inicializadas: ${_appointmentStates.length}');
+      }
+    } catch (e) {
+      debugPrint('[LocalNotif] Error inicializando citas: $e');
+    }
+  }
+
+  /// Detecta cambios de estado en citas y notifica
+  static Future<void> _checkForAppointmentChanges() async {
+    if (!_appointmentStatesInitialized) return;
+
+    try {
+      final result = await ApiService.getMyAppointments();
+      if (!result.success || result.data == null) return;
+
+      for (final appointment in result.data!) {
+        final prevState = _appointmentStates[appointment.citaId];
+
+        if (prevState != null && prevState != appointment.estado) {
+          // El estado cambió — notificar
+          final title = _appointmentStatusTitle(appointment.estado);
+          final body = _appointmentStatusBody(appointment);
+          debugPrint('[LocalNotif] Cita ${appointment.citaId}: $prevState → ${appointment.estado}');
+
+          _showNotification(
+            id: 100000 + appointment.citaId, // offset para no colisionar con notif IDs
+            title: title,
+            body: body,
+            channel: 'appointments',
+            channelName: 'Citas',
+          );
+        } else if (prevState == null) {
+          // Cita nueva que no teníamos — no notificar, solo registrar
+          debugPrint('[LocalNotif] Nueva cita detectada: ${appointment.citaId} (${appointment.estado})');
+        }
+      }
+
+      // Actualizar estados
+      _appointmentStates = {
+        for (final a in result.data!) a.citaId: a.estado,
+      };
+    } catch (e) {
+      debugPrint('[LocalNotif] Error verificando citas: $e');
+    }
+  }
+
+  static String _appointmentStatusTitle(String estado) {
+    return switch (estado.toUpperCase()) {
+      'CONFIRMADA' => 'Cita confirmada',
+      'CANCELADA'  => 'Cita cancelada',
+      'COMPLETADA' => 'Cita completada',
+      _            => 'Actualización de cita',
+    };
+  }
+
+  static String _appointmentStatusBody(AppointmentModel a) {
+    final fecha = a.fecha;
+    final hora = a.horaInicio;
+    return switch (a.estado.toUpperCase()) {
+      'CONFIRMADA' => 'Tu cita del $fecha a las $hora ha sido confirmada',
+      'CANCELADA'  => 'Tu cita del $fecha a las $hora ha sido cancelada',
+      'COMPLETADA' => 'Tu cita del $fecha a las $hora ha sido completada',
+      _            => 'Tu cita del $fecha a las $hora fue actualizada',
+    };
+  }
+
   static String _channelForType(String tipo) {
-    if (tipo.contains('mensaje')) return 'messages';
-    if (tipo.contains('cita')) return 'appointments';
+    final t = tipo.toUpperCase();
+    if (t.contains('MENSAJE')) return 'messages';
+    if (t.contains('CITA')) return 'appointments';
     return 'general';
   }
 
   static String _channelNameForType(String tipo) {
-    if (tipo.contains('mensaje')) return 'Mensajes';
-    if (tipo.contains('cita')) return 'Citas';
+    final t = tipo.toUpperCase();
+    if (t.contains('MENSAJE')) return 'Mensajes';
+    if (t.contains('CITA')) return 'Citas';
     return 'Notificaciones';
   }
 
@@ -176,7 +284,9 @@ class LocalNotificationService {
               event.data['id'] as int? ??
               DateTime.now().millisecond,
           title: _notificationTitle(event.data['tipo'] as String? ?? ''),
-          body: event.data['contenido'] as String? ?? 'Nueva notificación',
+          body: event.data['mensaje'] as String? ??
+              event.data['contenido'] as String? ??
+              'Nueva notificación',
           channel: 'general',
           channelName: 'Notificaciones',
         );
@@ -188,11 +298,14 @@ class LocalNotificationService {
   }
 
   static String _notificationTitle(String tipo) {
-    return switch (tipo) {
-      'mensaje'          => 'Nuevo mensaje',
-      'cita_confirmada'  => 'Cita confirmada',
-      'cita_cancelada'   => 'Cita cancelada',
-      'cita_completada'  => 'Cita completada',
+    return switch (tipo.toUpperCase()) {
+      'MENSAJE'          => 'Nuevo mensaje',
+      'CITA_CONFIRMADA'  => 'Cita confirmada',
+      'CITA_CANCELADA'   => 'Cita cancelada',
+      'CITA_COMPLETADA'  => 'Cita completada',
+      'INFO'             => 'Información',
+      'WARNING'          => 'Advertencia',
+      'ERROR'            => 'Error',
       _                  => 'BookSmart',
     };
   }
