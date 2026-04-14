@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geocoding/geocoding.dart' as geo;
 import 'package:latlong2/latlong.dart';
 import '../../config/app_theme.dart';
 import '../../config/page_transitions.dart';
@@ -54,6 +55,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
   double _userLon = -103.3496;
   bool _isLoading = true;
   bool _hasLocation = false;
+  String _locationName = '';
   bool _showMap = false;
   bool _showSearchAreaButton = false;
   double _topPanelHeight = 0;
@@ -104,6 +106,28 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         _userLon = position.longitude;
         _hasLocation = true;
       });
+      // Reverse geocoding para obtener el nombre de la calle/colonia
+      try {
+        final placemarks = await geo.placemarkFromCoordinates(
+          position.latitude, position.longitude,
+        );
+        if (placemarks.isNotEmpty && mounted) {
+          final p = placemarks.first;
+          // Construir dirección corta: colonia, ciudad (calle solo como fallback)
+          final parts = <String>[
+            if (p.subLocality != null && p.subLocality!.isNotEmpty)
+              p.subLocality!
+            else if (p.street != null && p.street!.isNotEmpty)
+              p.street!,
+            if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
+          ];
+          if (parts.isNotEmpty) {
+            setState(() => _locationName = parts.join(', '));
+          }
+        }
+      } catch (e) {
+        debugPrint('[Location] Reverse geocoding error: $e');
+      }
     }
   }
 
@@ -320,7 +344,11 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  _hasLocation ? 'Tu ubicación actual' : 'Obteniendo ubicación...',
+                  _hasLocation
+                      ? (_locationName.isNotEmpty ? _locationName : 'Mi ubicación actual')
+                      : 'Obteniendo ubicación...',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: AppColors.textSecondary.withOpacity(0.7),
                     fontSize: 13,

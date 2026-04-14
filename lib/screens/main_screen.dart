@@ -41,9 +41,13 @@ class _MainScreenState extends State<MainScreen> {
     Navigator.push(
       context,
       appRoute(const NotificationsScreen()),
-    ).then((_) {
+    ).then((result) {
       // Al volver, recargar conteo real desde API
       WebSocketService.instance.refreshUnreadCount();
+      // Si la notificación pidió navegar a Citas, cambiar de pestaña
+      if (result == 'appointments') {
+        setState(() => _currentIndex = 1);
+      }
     });
   }
 

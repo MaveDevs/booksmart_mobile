@@ -223,14 +223,39 @@ class LocalNotificationService {
   }
 
   static String _appointmentStatusBody(AppointmentModel a) {
-    final fecha = a.fecha;
-    final hora = a.horaInicio;
+    final fecha = _formatFecha(a.fecha);
+    final hora = _formatHora(a.horaInicio);
     return switch (a.estado.toUpperCase()) {
       'CONFIRMADA' => 'Tu cita del $fecha a las $hora ha sido confirmada',
       'CANCELADA'  => 'Tu cita del $fecha a las $hora ha sido cancelada',
       'COMPLETADA' => 'Tu cita del $fecha a las $hora ha sido completada',
       _            => 'Tu cita del $fecha a las $hora fue actualizada',
     };
+  }
+
+  /// Convierte "2026-04-14" → "14/04/2026"
+  static String _formatFecha(String raw) {
+    try {
+      final dt = DateTime.parse(raw);
+      return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  /// Convierte "10:00:00" o "14:30" → "10:00 AM" o "2:30 PM"
+  static String _formatHora(String raw) {
+    try {
+      final parts = raw.split(':');
+      int hour = int.parse(parts[0]);
+      final min = parts.length > 1 ? parts[1] : '00';
+      final period = hour >= 12 ? 'PM' : 'AM';
+      if (hour == 0) hour = 12;
+      if (hour > 12) hour -= 12;
+      return '$hour:$min $period';
+    } catch (_) {
+      return raw;
+    }
   }
 
   static String _channelForType(String tipo) {

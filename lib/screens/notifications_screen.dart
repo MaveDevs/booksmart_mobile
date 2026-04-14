@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
+import '../config/page_transitions.dart';
 import '../models/notification_model.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/websocket_service.dart';
+import 'appointment_chat_screen.dart';
 
 /// Pantalla de notificaciones in-app
 class NotificationsScreen extends StatefulWidget {
@@ -92,6 +94,53 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
+  /// Maneja el tap sobre una notificación: marcar como leída + navegar
+  Future<void> _onNotificationTap(NotificationModel notification) async {
+    // Marcar como leída primero
+    await _markAsRead(notification);
+    if (!mounted) return;
+
+    final tipo = notification.tipo.toUpperCase();
+    debugPrint('[Notifications] Tap: tipo=$tipo citaId=${notification.citaId}');
+
+    // Notificación de mensaje con cita_id → ir al chat de esa cita
+    if (notification.citaId != null) {
+      final result = await ApiService.getMyAppointments();
+      if (!mounted) return;
+      if (result.success && result.data != null) {
+        final appointment = result.data!
+            .where((a) => a.citaId == notification.citaId)
+            .firstOrNull;
+        if (appointment != null) {
+          if (tipo.contains('MENSAJE') || tipo == 'INFO') {
+            // Abrir chat de esa cita
+            Navigator.push(
+              context,
+              appRoute(AppointmentChatScreen(appointment: appointment)),
+            );
+            return;
+          } else {
+            // Notificación de cita → ir a pestaña Citas
+            Navigator.pop(context, 'appointments');
+            return;
+          }
+        }
+      }
+    }
+
+    // Sin cita_id: si es tipo cita, ir a pestaña Citas
+    if (tipo.contains('CITA') || tipo == 'CONFIRMADA' || tipo == 'CANCELADA' || tipo == 'COMPLETADA') {
+      Navigator.pop(context, 'appointments');
+      return;
+    }
+
+    // Para tipo MENSAJE sin cita_id: ir a pestaña Citas (donde están los chats)
+    if (tipo.contains('MENSAJE')) {
+      Navigator.pop(context, 'appointments');
+      return;
     }
   }
 
@@ -371,7 +420,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                               icon: _iconForType(n.tipo),
                               color: _colorForType(n.tipo),
                               timeAgo: _formatDate(n.fechaCreacion),
-                              onTap: () => _markAsRead(n),
+                              onTap: () => _onNotificationTap(n),
                             ),
                           );
                         },

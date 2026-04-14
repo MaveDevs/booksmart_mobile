@@ -60,6 +60,7 @@ dependencies:
   # Notificaciones locales
   flutter_local_notifications: ^18.0.1
   workmanager: ^0.9.0+3
+  geocoding: ^4.0.0
 
 dev_dependencies:
   # App icon configuration
