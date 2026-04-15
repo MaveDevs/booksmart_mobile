@@ -34,13 +34,17 @@ class StorageService {
     return value != null ? int.tryParse(value) : null;
   }
 
-  /// Elimina todos los datos almacenados (para logout)
-  /// Preserva la preferencia de tema del usuario
+  /// Elimina datos de sesión (para logout)
+  /// Preserva: tema, notificaciones descartadas
   static Future<void> clearAll() async {
     final theme = await _storage.read(key: 'app_theme_mode');
+    final dismissed = await _storage.read(key: _dismissedNotifsKey);
     await _storage.deleteAll();
     if (theme != null) {
       await _storage.write(key: 'app_theme_mode', value: theme);
+    }
+    if (dismissed != null) {
+      await _storage.write(key: _dismissedNotifsKey, value: dismissed);
     }
   }
 

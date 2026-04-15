@@ -16,11 +16,16 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _hideNotificationBell = false;
+  final _searchTabKey = GlobalKey<SearchTabState>();
 
-  final List<Widget> _tabs = const [
-    SearchTab(),
-    AppointmentsTab(),
-    ProfileTab(),
+  late final List<Widget> _tabs = [
+    SearchTab(
+      key: _searchTabKey,
+      onMapChanged: (isMap) => setState(() => _hideNotificationBell = isMap),
+    ),
+    const AppointmentsTab(),
+    const ProfileTab(),
   ];
 
   final List<_NavItemData> _navItems = const [
@@ -65,7 +70,7 @@ class _MainScreenState extends State<MainScreen> {
         children: [
           _tabs[_currentIndex],
           // Botón de notificaciones flotante
-          Positioned(
+          if (!_hideNotificationBell) Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             right: 16,
             child: ValueListenableBuilder<int>(
@@ -178,7 +183,15 @@ class _MainScreenState extends State<MainScreen> {
                         isSelected: _currentIndex == index,
                         activeColor: navPrimary,
                         inactiveColor: navInactive,
-                        onTap: () => setState(() => _currentIndex = index),
+                        onTap: () {
+                          if (index == 0 && _currentIndex == 0) {
+                            // Re-tap en Buscar: volver al inicio
+                            Navigator.of(context).popUntil((r) => r.isFirst);
+                            _searchTabKey.currentState?.goHome();
+                          } else {
+                            setState(() => _currentIndex = index);
+                          }
+                        },
                       ),
                     ),
                   ),

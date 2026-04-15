@@ -18,22 +18,90 @@ class _Category {
 }
 
 const _categories = [
-  _Category('Barberías', Icons.content_cut_rounded, ['barbería', 'barberia', 'barber']),
-  _Category('Salones', Icons.brush_rounded, ['salón', 'salon', 'belleza', 'beauty', 'estética', 'estetica']),
-  _Category('Spa', Icons.spa_rounded, ['spa', 'masaje', 'relajación', 'relajacion']),
-  _Category('Uñas', Icons.back_hand_rounded, ['uñas', 'nail', 'manicure', 'pedicure']),
-  _Category('Facial', Icons.face_retouching_natural_rounded, ['facial', 'skin', 'piel', 'rostro']),
-  _Category('Tattoo', Icons.draw_rounded, ['tattoo', 'tatuaje', 'piercing']),
+  _Category('Barberías', Icons.content_cut_rounded, ['barberia', 'barber', 'barbershop', 'corte', 'cortes', 'pelo', 'cabello', 'fade', 'degradado']),
+  _Category('Salones', Icons.brush_rounded, ['salon', 'belleza', 'beauty', 'estetica', 'peinado', 'tinte', 'color', 'alisado', 'keratina']),
+  _Category('Spa', Icons.spa_rounded, ['spa', 'masaje', 'relajacion', 'relax', 'sauna', 'terapia', 'bienestar']),
+  _Category('Uñas', Icons.back_hand_rounded, ['unas', 'nail', 'nails', 'manicure', 'pedicure', 'gelish', 'acrilico', 'acrilicas']),
+  _Category('Facial', Icons.face_retouching_natural_rounded, ['facial', 'skin', 'piel', 'rostro', 'limpieza', 'skincare']),
+  _Category('Tattoo', Icons.draw_rounded, ['tattoo', 'tatuaje', 'piercing', 'tatto', 'ink']),
 ];
 
-class SearchTab extends StatefulWidget {
-  const SearchTab({super.key});
+/// Sinónimos comunes de búsqueda
+const _synonymGroups = <List<String>>[
+  ['barberia', 'barber', 'barbershop', 'brberia', 'varber', 'barveria', 'barbero', 'barberos'],
+  ['salon', 'belleza', 'beauty', 'estetica', 'estetic'],
+  ['corte', 'cortes', 'pelo', 'cabello', 'haircut', 'hair'],
+  ['unas', 'nails', 'nail', 'manicure', 'pedicure', 'mani', 'pedi'],
+  ['spa', 'masaje', 'massage', 'relax', 'relajacion'],
+  ['facial', 'rostro', 'cara', 'piel', 'skin', 'skincare'],
+  ['tattoo', 'tatuaje', 'tatto', 'tatoo', 'ink', 'piercing'],
+  ['tinte', 'color', 'coloracion'],
+  ['alisado', 'keratina', 'lacio'],
+  ['cejas', 'ceja', 'brow', 'brows', 'eyebrow'],
+  ['depilacion', 'wax', 'cera'],
+];
 
-  @override
-  State<SearchTab> createState() => _SearchTabState();
+/// Elimina acentos y caracteres especiales para comparación
+String _normalize(String input) {
+  const _accentMap = {
+    'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+    'Á': 'a', 'É': 'e', 'Í': 'i', 'Ó': 'o', 'Ú': 'u',
+    'ñ': 'n', 'Ñ': 'n', 'ü': 'u', 'Ü': 'u',
+  };
+  final buffer = StringBuffer();
+  for (final ch in input.toLowerCase().runes) {
+    final c = String.fromCharCode(ch);
+    buffer.write(_accentMap[c] ?? c);
+  }
+  return buffer.toString();
 }
 
-class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMixin {
+/// Calcula distancia de edición simplificada (Levenshtein) entre dos strings
+int _editDistance(String a, String b) {
+  if (a == b) return 0;
+  if (a.isEmpty) return b.length;
+  if (b.isEmpty) return a.length;
+  final la = a.length, lb = b.length;
+  var prev = List.generate(lb + 1, (i) => i);
+  for (var i = 1; i <= la; i++) {
+    final curr = List.filled(lb + 1, 0);
+    curr[0] = i;
+    for (var j = 1; j <= lb; j++) {
+      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
+      curr[j] = [curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost].reduce((a, b) => a < b ? a : b);
+    }
+    prev = curr;
+  }
+  return prev[lb];
+}
+
+/// Expande la query con sinónimos
+Set<String> _expandWithSynonyms(String normalizedQuery) {
+  final terms = normalizedQuery.split(RegExp(r'\s+')).where((s) => s.isNotEmpty).toSet();
+  final expanded = <String>{...terms};
+  for (final term in terms) {
+    for (final group in _synonymGroups) {
+      // Match exacto o fuzzy contra alguno del grupo
+      final matchesGroup = group.any((syn) =>
+          syn == term || syn.contains(term) || term.contains(syn) ||
+          (term.length >= 4 && _editDistance(term, syn) <= 2));
+      if (matchesGroup) {
+        expanded.addAll(group);
+      }
+    }
+  }
+  return expanded;
+}
+
+class SearchTab extends StatefulWidget {
+  final ValueChanged<bool>? onMapChanged;
+  const SearchTab({super.key, this.onMapChanged});
+
+  @override
+  State<SearchTab> createState() => SearchTabState();
+}
+
+class SearchTabState extends State<SearchTab> with SingleTickerProviderStateMixin {
   // ── Controladores ──
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode();
@@ -133,23 +201,41 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
 
   Future<void> _loadEstablishments() async {
     setState(() => _isLoading = true);
-    final result = await ApiService.getEstablishments();
+
+    // Intentar usar el endpoint nearby si tenemos ubicación
+    ApiResult<List<EstablishmentModel>> result;
+    if (_hasLocation) {
+      result = await ApiService.getNearbyEstablishments(
+        latitude: _userLat,
+        longitude: _userLon,
+        radiusKm: _searchRadiusKm,
+      );
+    } else {
+      result = await ApiService.getEstablishments();
+    }
 
     if (mounted) {
       if (result.success && result.data != null) {
-        final all = result.data!
-          ..sort((a, b) =>
+        final all = result.data!;
+        // Si vino del nearby endpoint, ya viene ordenado por ranking/distancia
+        // Si no, ordenar por distancia calculada
+        if (!_hasLocation) {
+          all.sort((a, b) =>
               a.distanceTo(_userLat, _userLon).compareTo(
               b.distanceTo(_userLat, _userLon)));
+        }
 
         setState(() {
           _everyEstablishment = all;
-          _allEstablishments = all
-              .where((e) => e.distanceTo(_userLat, _userLon) <= _searchRadiusKm)
-              .toList();
-          _nearbyEstablishments = all
-              .where((e) => e.distanceTo(_userLat, _userLon) <= _nearbyRadiusKm)
-              .toList();
+          // Si viene del nearby, distanceKm ya está, usar eso; sino calcular
+          _allEstablishments = all.where((e) {
+            final dist = e.distanceKm ?? e.distanceTo(_userLat, _userLon);
+            return dist <= _searchRadiusKm;
+          }).toList();
+          _nearbyEstablishments = all.where((e) {
+            final dist = e.distanceKm ?? e.distanceTo(_userLat, _userLon);
+            return dist <= _nearbyRadiusKm;
+          }).toList();
           _filteredEstablishments = _allEstablishments;
           _isLoading = false;
         });
@@ -161,30 +247,42 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
 
   // ── Filtrado ──
   void _applyFilters() {
-    final query = _searchController.text.toLowerCase();
+    final rawQuery = _searchController.text;
+    final normalizedQuery = _normalize(rawQuery);
     final catIndex = _selectedCategoryIndex;
 
-    // Si hay búsqueda activa, buscar en TODOS los establecimientos
-    // Si no, solo mostrar los del radio cercano
-    final isSearching = query.isNotEmpty || catIndex != null;
+    final isSearching = normalizedQuery.isNotEmpty || catIndex != null;
     var results = List<EstablishmentModel>.from(
         isSearching ? _everyEstablishment : _allEstablishments);
 
-    // Filtrar por categoría
+    // Filtrar por categoría (keywords ya están normalizados)
     if (catIndex != null) {
       final keywords = _categories[catIndex].keywords;
       results = results.where((e) {
-        final text = '${e.nombre} ${e.descripcion}'.toLowerCase();
+        final text = _normalize('${e.nombre} ${e.descripcion}');
         return keywords.any((kw) => text.contains(kw));
       }).toList();
     }
 
-    // Filtrar por texto de búsqueda
-    if (query.isNotEmpty) {
-      results = results.where((e) =>
-          e.nombre.toLowerCase().contains(query) ||
-          e.descripcion.toLowerCase().contains(query) ||
-          e.direccion.toLowerCase().contains(query)).toList();
+    // Filtrar por texto de búsqueda con normalización, sinónimos y tolerancia a errores
+    if (normalizedQuery.isNotEmpty) {
+      final expandedTerms = _expandWithSynonyms(normalizedQuery);
+
+      results = results.where((e) {
+        final text = _normalize('${e.nombre} ${e.descripcion} ${e.direccion}');
+        final words = text.split(RegExp(r'\s+'));
+        // Al menos un término expandido debe hacer match
+        return expandedTerms.any((term) {
+          // Match exacto parcial
+          if (text.contains(term)) return true;
+          // Fuzzy: edit distance ≤ 2 para palabras de 4+ caracteres
+          if (term.length >= 4) {
+            return words.any((w) =>
+                w.length >= 4 && _editDistance(term, w) <= 2);
+          }
+          return false;
+        });
+      }).toList();
     }
 
     setState(() {
@@ -207,6 +305,7 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         _selectedCategoryIndex = categoryIndex;
       }
     });
+    widget.onMapChanged?.call(true);
     _applyFilters();
     _transitionController.forward(from: 0);
     // Medir el panel superior después del primer frame
@@ -239,6 +338,14 @@ class _SearchTabState extends State<SearchTab> with SingleTickerProviderStateMix
         _selectedEstablishment = null;
         _filteredEstablishments = _allEstablishments;
       });
+      widget.onMapChanged?.call(false);
+    }
+  }
+
+  /// Regresa a la vista principal de descubrimiento
+  void goHome() {
+    if (_showMap) {
+      _closeMapView();
     }
   }
 

@@ -46,8 +46,8 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.isEmpty) {
       return 'Ingresa tu contrasena';
     }
-    if (value.length < 4) {
-      return 'Minimo 4 caracteres';
+    if (value.length < 8) {
+      return 'Mínimo 8 caracteres';
     }
     return null;
   }

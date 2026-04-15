@@ -10,6 +10,11 @@ class EstablishmentModel {
   final String telefono;
   final int usuarioId;
   final bool activo;
+  // Campos del endpoint nearby
+  final double? distanceKm;
+  final double? rankingScore;
+  final bool? subscriptionActive;
+  final String? subscriptionPlanName;
 
   EstablishmentModel({
     required this.establecimientoId,
@@ -21,6 +26,10 @@ class EstablishmentModel {
     required this.telefono,
     required this.usuarioId,
     required this.activo,
+    this.distanceKm,
+    this.rankingScore,
+    this.subscriptionActive,
+    this.subscriptionPlanName,
   });
 
   factory EstablishmentModel.fromJson(Map<String, dynamic> json) {
@@ -34,6 +43,10 @@ class EstablishmentModel {
       telefono: json['telefono'] as String? ?? '',
       usuarioId: json['usuario_id'] as int? ?? 0,
       activo: json['activo'] as bool? ?? true,
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      rankingScore: (json['ranking_score'] as num?)?.toDouble(),
+      subscriptionActive: json['subscription_active'] as bool?,
+      subscriptionPlanName: json['subscription_plan_name'] as String?,
     );
   }
 
@@ -53,8 +66,9 @@ class EstablishmentModel {
   static double _toRad(double deg) => deg * pi / 180;
 
   /// Distancia formateada para mostrar en la UI
+  /// Usa distanceKm del backend si está disponible, sino calcula con Haversine
   String distanciaFormateada(double userLat, double userLon) {
-    final dist = distanceTo(userLat, userLon);
+    final dist = distanceKm ?? distanceTo(userLat, userLon);
     if (dist < 1) {
       return '${(dist * 1000).round()} m';
     }

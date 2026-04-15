@@ -67,8 +67,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.isEmpty) {
       return 'Ingresa una contrasena';
     }
-    if (value.length < 6) {
-      return 'Minimo 6 caracteres';
+    if (value.length < 8) {
+      return 'Mínimo 8 caracteres';
     }
     return null;
   }

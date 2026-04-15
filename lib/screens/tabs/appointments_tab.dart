@@ -479,6 +479,7 @@ class _AppointmentCardState extends State<_AppointmentCard>
         appt.establecimientoNombre ?? info?.estNombre ?? 'Establecimiento';
     final svcNombre =
         appt.servicioNombre ?? info?.svcNombre ?? 'Servicio #${appt.servicioId}';
+    final workerName = appt.trabajadorNombreCompleto;
     final direccion = info?.estDireccion;
     final fechaLegible = _formatFechaLegible(appt.fecha);
     final horaInicio = _formatHora12(appt.horaInicio);
@@ -597,6 +598,27 @@ class _AppointmentCardState extends State<_AppointmentCard>
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
+                          if (workerName != null) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                Icon(Icons.person_outline_rounded,
+                                    size: 13, color: AppColors.textSecondary),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    workerName,
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),

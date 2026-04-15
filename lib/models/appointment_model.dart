@@ -11,6 +11,9 @@ class AppointmentModel {
   final String? servicioNombre;
   final String? establecimientoNombre;
   final int? establecimientoId;
+  final int? trabajadorId;
+  final String? trabajadorNombre;
+  final String? trabajadorApellido;
 
   AppointmentModel({
     required this.citaId,
@@ -23,6 +26,9 @@ class AppointmentModel {
     this.servicioNombre,
     this.establecimientoNombre,
     this.establecimientoId,
+    this.trabajadorId,
+    this.trabajadorNombre,
+    this.trabajadorApellido,
   });
 
   factory AppointmentModel.fromJson(Map<String, dynamic> json) {
@@ -37,6 +43,9 @@ class AppointmentModel {
       servicioNombre: json['servicio_nombre'] as String?,
       establecimientoNombre: json['establecimiento_nombre'] as String?,
       establecimientoId: json['establecimiento_id'] as int?,
+      trabajadorId: json['trabajador_id'] as int?,
+      trabajadorNombre: json['trabajador_nombre'] as String?,
+      trabajadorApellido: json['trabajador_apellido'] as String?,
     );
   }
 
@@ -61,6 +70,16 @@ class AppointmentModel {
       default:
         return estado;
     }
+  }
+
+  /// Nombre completo del trabajador asignado
+  String? get trabajadorNombreCompleto {
+    if (trabajadorNombre == null) return null;
+    final parts = <String>[
+      if (trabajadorNombre != null && trabajadorNombre!.isNotEmpty) trabajadorNombre!,
+      if (trabajadorApellido != null && trabajadorApellido!.isNotEmpty) trabajadorApellido!,
+    ];
+    return parts.isNotEmpty ? parts.join(' ') : null;
   }
 
   /// Hora formateada: "10:30 - 11:00"

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../config/app_theme.dart';
 import '../models/establishment_model.dart';
 import '../models/service_model.dart';
+import '../models/worker_model.dart';
 import '../services/api_service.dart';
 import '../services/storage_service.dart';
 
@@ -27,14 +28,36 @@ class _BookingScreenState extends State<BookingScreen> {
   bool _isLoadingSlots = false;
   bool _isBooking = false;
 
+  // Profesionales
+  List<WorkerModel> _workers = [];
+  int? _selectedWorkerId; // null = "Cualquiera"
+  bool _isLoadingWorkers = false;
+
   @override
   void initState() {
     super.initState();
+    _loadWorkers();
     _loadSlots();
   }
 
   String get _fechaFormatted =>
       '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
+
+  Future<void> _loadWorkers() async {
+    setState(() => _isLoadingWorkers = true);
+    final result = await ApiService.getWorkers(
+      widget.establishment.establecimientoId,
+      servicioId: widget.service.servicioId,
+    );
+    if (mounted) {
+      setState(() {
+        _isLoadingWorkers = false;
+        if (result.success && result.data != null) {
+          _workers = result.data!;
+        }
+      });
+    }
+  }
 
   Future<void> _loadSlots() async {
     setState(() {
@@ -45,6 +68,7 @@ class _BookingScreenState extends State<BookingScreen> {
     final result = await ApiService.getAvailableSlots(
       servicioId: widget.service.servicioId,
       fecha: _fechaFormatted,
+      trabajadorId: _selectedWorkerId,
     );
 
     if (mounted) {
@@ -130,12 +154,15 @@ class _BookingScreenState extends State<BookingScreen> {
       fecha: _fechaFormatted,
       horaInicio: _selectedSlot!,
       horaFin: _calcHoraFin(_selectedSlot!),
+      trabajadorId: _selectedWorkerId,
     );
 
     if (!mounted) return;
     setState(() => _isBooking = false);
 
     if (result.success) {
+      final appt = result.data!;
+      final workerName = appt.trabajadorNombreCompleto;
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -161,6 +188,24 @@ class _BookingScreenState extends State<BookingScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
               ),
+              if (workerName != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.person_rounded, size: 16, color: AppColors.primary),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Con $workerName',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
           actions: [
@@ -179,6 +224,77 @@ class _BookingScreenState extends State<BookingScreen> {
         SnackBar(content: Text(result.error ?? 'Error al agendar')),
       );
     }
+  }
+
+  Widget _buildWorkerSelector() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.greyDark, width: 0.5),
+      ),
+      child: _isLoadingWorkers
+          ? Row(
+              children: [
+                Icon(Icons.person_rounded, color: AppColors.primary, size: 20),
+                const SizedBox(width: 12),
+                Text(
+                  'Cargando profesionales...',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Icon(Icons.person_rounded, color: AppColors.primary, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<int?>(
+                      value: _selectedWorkerId,
+                      isExpanded: true,
+                      dropdownColor: AppColors.surface,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      hint: Text(
+                        'Cualquier profesional',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      items: [
+                        DropdownMenuItem<int?>(
+                          value: null,
+                          child: Text(
+                            'Cualquier profesional',
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                        ),
+                        ..._workers.map((w) => DropdownMenuItem<int?>(
+                              value: w.trabajadorId,
+                              child: Text(
+                                w.nombreCompleto,
+                                style: TextStyle(color: AppColors.textPrimary),
+                              ),
+                            )),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedWorkerId = value);
+                        _loadSlots();
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
   }
 
   @override
@@ -254,6 +370,9 @@ class _BookingScreenState extends State<BookingScreen> {
               ],
             ),
           ),
+
+          // ── Selector de profesional ──
+          _buildWorkerSelector(),
 
           // ── Selector de fecha ──
           GestureDetector(

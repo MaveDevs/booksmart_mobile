@@ -14,6 +14,7 @@ import '../models/rating_model.dart';
 import '../models/appointment_model.dart';
 import '../models/message_model.dart';
 import '../models/notification_model.dart';
+import '../models/worker_model.dart';
 import '../screens/login_screen.dart';
 import 'storage_service.dart';
 
@@ -35,9 +36,13 @@ class ApiResult<T> {
 
 /// Servicio para comunicarse con la API
 class ApiService {
+  /// Evita que múltiples 401 simultáneos abran varias pantallas de login
+  static bool _isHandlingSessionExpired = false;
 
   /// Maneja 401 globalmente: limpia sesión y redirige al login
   static Future<void> _handleSessionExpired() async {
+    if (_isHandlingSessionExpired) return;
+    _isHandlingSessionExpired = true;
     await StorageService.clearAll();
     final ctx = navigatorKey.currentState;
     if (ctx != null) {
@@ -46,6 +51,7 @@ class ApiService {
         (_) => false,
       );
     }
+    _isHandlingSessionExpired = false;
   }
 
   /// Ejecuta una petición autenticada. Si recibe 401, limpia sesión y redirige.
@@ -341,6 +347,42 @@ class ApiService {
     }
   }
 
+  /// Obtiene establecimientos cercanos ordenados por distancia y prioridad
+  static Future<ApiResult<List<EstablishmentModel>>> getNearbyEstablishments({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 10,
+  }) async {
+    try {
+      final response = await _authenticatedRequest((token) => http.get(
+        Uri.parse(
+          '${ApiConfig.baseUrl}/api/v1/establishments/nearby'
+          '?latitude=$latitude&longitude=$longitude&radius_km=$radiusKm',
+        ),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ));
+
+      if (response == null) return ApiResult.failure('Sesion expirada');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final establishments = data
+            .map((json) => EstablishmentModel.fromJson(json))
+            .toList();
+        return ApiResult.success(establishments);
+      } else {
+        return ApiResult.failure('Error al obtener establecimientos cercanos');
+      }
+    } on SocketException {
+      return ApiResult.failure('Sin conexion a internet');
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+    }
+  }
+
   // ══════════════════════════════════════════════════════════
   //  SERVICIOS DE UN ESTABLECIMIENTO
   // ══════════════════════════════════════════════════════════
@@ -475,6 +517,42 @@ class ApiService {
   }
 
   // ══════════════════════════════════════════════════════════
+  //  TRABAJADORES / WORKERS
+  // ══════════════════════════════════════════════════════════
+
+  /// Obtiene los trabajadores de un establecimiento
+  static Future<ApiResult<List<WorkerModel>>> getWorkers(int establishmentId, {int? servicioId}) async {
+    try {
+      var url = '${ApiConfig.baseUrl}/api/v1/workers/?establishment_id=$establishmentId';
+      if (servicioId != null) url += '&servicio_id=$servicioId';
+      final response = await _authenticatedRequest((token) => http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      ));
+
+      if (response == null) return ApiResult.failure('Sesion expirada');
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final workers = data
+            .map((json) => WorkerModel.fromJson(json))
+            .where((w) => w.activo)
+            .toList();
+        return ApiResult.success(workers);
+      } else {
+        return ApiResult.failure('Error al obtener profesionales');
+      }
+    } on SocketException {
+      return ApiResult.failure('Sin conexion a internet');
+    } catch (e) {
+      return ApiResult.failure('Error inesperado: $e');
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
   //  CITAS / APPOINTMENTS
   // ══════════════════════════════════════════════════════════
 
@@ -482,13 +560,16 @@ class ApiService {
   static Future<ApiResult<List<String>>> getAvailableSlots({
     required int servicioId,
     required String fecha,
+    int? trabajadorId,
   }) async {
     try {
+      var url = '${ApiConfig.baseUrl}/api/v1/appointments/availability/slots'
+          '?servicio_id=$servicioId&target_date=$fecha';
+      if (trabajadorId != null) {
+        url += '&trabajador_id=$trabajadorId';
+      }
       final response = await _authenticatedRequest((token) => http.get(
-        Uri.parse(
-          '${ApiConfig.baseUrl}/api/v1/appointments/availability/slots'
-          '?servicio_id=$servicioId&target_date=$fecha',
-        ),
+        Uri.parse(url),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $token',
@@ -502,6 +583,11 @@ class ApiService {
         final List<dynamic> data = body['available_slots'] ?? [];
         final slots = data.map((e) => e.toString()).toList();
         return ApiResult.success(slots);
+      } else if (response.statusCode == 400) {
+        final detail = _extractDetail(response.body);
+        return ApiResult.failure(detail ?? 'No hay profesionales para este servicio');
+      } else if (response.statusCode == 404) {
+        return ApiResult.failure('Servicio no encontrado');
       } else {
         return ApiResult.failure('Error al obtener horarios');
       }
@@ -519,6 +605,7 @@ class ApiService {
     required String fecha,
     required String horaInicio,
     required String horaFin,
+    int? trabajadorId,
   }) async {
     try {
       final response = await _authenticatedRequest((token) => http.post(
@@ -533,7 +620,7 @@ class ApiService {
           'fecha': fecha,
           'hora_inicio': horaInicio,
           'hora_fin': horaFin,
-          'estado': 'PENDIENTE',
+          'trabajador_id': trabajadorId,
         }),
       ));
 
@@ -542,6 +629,9 @@ class ApiService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         final data = jsonDecode(response.body);
         return ApiResult.success(AppointmentModel.fromJson(data));
+      } else if (response.statusCode == 400) {
+        final detail = _extractDetail(response.body);
+        return ApiResult.failure(detail ?? 'No hay profesionales disponibles en este horario');
       } else if (response.statusCode == 409) {
         return ApiResult.failure('Ese horario ya no está disponible');
       } else {
